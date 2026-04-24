@@ -9,13 +9,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "remotestoragejs": "^2.0.0-beta.8",
-    "remotestorage-widget": "^1.8.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^3.3.1",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.12.3",
@@ -23,16 +16,26 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.6",
     "@lezer/markdown": "^1.6.3",
-    "codemirror-live-markdown": "^0.5.1-alpha.1"
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "codemirror-live-markdown": "^0.5.1-alpha.1",
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.2",
+    "marked-highlight": "^2.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "remotestorage-widget": "^1.8.1",
+    "remotestoragejs": "^2.0.0-beta.8",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
-    "vitest": "^4.1.4",
-    "@tailwindcss/vite": "^4.2.2",
-    "tailwindcss": "^4.2.2"
+    "vitest": "^4.1.4"
   }
 }

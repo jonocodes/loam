@@ -116,11 +116,12 @@ export async function rebuildIndex(): Promise<void> {
 
   const existingIndex = await pullIndex()
   const urlPrefix = existingIndex?.urlPrefix
-  const nextIndex = rebuildIndexFromPublishedMeta(validMeta, (id) => contentUrlMap.get(id) ?? null, title, tagline, urlPrefix)
+  const urlEncoding = existingIndex?.urlEncoding
+  const nextIndex = rebuildIndexFromPublishedMeta(validMeta, (id) => contentUrlMap.get(id) ?? null, title, tagline, urlPrefix, urlEncoding)
   await storeIndexAndFeed(nextIndex)
 }
 
-export async function saveSiteSettings(title: string, tagline: string, urlPrefix: string): Promise<void> {
+export async function saveSiteSettings(title: string, tagline: string, urlPrefix: string, urlEncoding: 'e1' | 'e2'): Promise<void> {
   await Promise.all([
     storeGardenSetting('title', title),
     storeGardenSetting('tagline', tagline),
@@ -132,6 +133,7 @@ export async function saveSiteSettings(title: string, tagline: string, urlPrefix
     title,
     tagline: tagline || undefined,
     urlPrefix: urlPrefix || undefined,
+    urlEncoding,
     updatedAt: new Date().toISOString(),
   }
   await storeIndexAndFeed(nextIndex)

@@ -14,10 +14,13 @@ export interface GardenPostMeta {
 
 export interface GardenIndexEntry {
   id: string
+  slug: string
+  date: string
   title: string
   excerpt: string
   publishedAt: string
   updatedAt: string
+  contentUrl: string
 }
 
 export interface GardenIndex {
@@ -25,6 +28,7 @@ export interface GardenIndex {
   title: string
   tagline?: string
   urlPrefix?: string
+  urlEncoding?: 'e1' | 'e2'
   updatedAt: string
   posts: GardenIndexEntry[]
 }

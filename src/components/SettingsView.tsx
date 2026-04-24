@@ -13,6 +13,7 @@ export function SettingsView({ onSave }: Props = {}) {
   const [title, setTitle] = useState('')
   const [tagline, setTagline] = useState('')
   const [urlPrefix, setUrlPrefix] = useState('')
+  const [urlEncoding, setUrlEncoding] = useState<'e1' | 'e2'>('e2')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -30,6 +31,7 @@ export function SettingsView({ onSave }: Props = {}) {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+      if (index?.urlEncoding) setUrlEncoding(index.urlEncoding)
     })
   }, [])
 
@@ -38,7 +40,7 @@ export function SettingsView({ onSave }: Props = {}) {
     setMessage('')
     setError('')
     try {
-      await saveSiteSettings(title, tagline, urlPrefix)
+      await saveSiteSettings(title, tagline, urlPrefix, urlEncoding)
       if (title) document.title = title
       onSave?.(urlPrefix)
       setMessage('Settings saved')
@@ -79,6 +81,19 @@ export function SettingsView({ onSave }: Props = {}) {
           <Input value={urlPrefix} onChange={(e) => setUrlPrefix(e.target.value)} placeholder="yourname" />
           <span className="text-xs text-slate-500">Appears in public URLs: /p/<em>yourname</em>/…</span>
         </label>
+        <fieldset className="grid gap-1 text-sm">
+          <span className="font-medium">URL encoding</span>
+          <div className="flex flex-col gap-1">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="urlEncoding" value="e2" checked={urlEncoding === 'e2'} onChange={() => setUrlEncoding('e2')} />
+              <span>e2 — Base64 URL-safe <span className="text-slate-500">(default)</span></span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="urlEncoding" value="e1" checked={urlEncoding === 'e1'} onChange={() => setUrlEncoding('e1')} />
+              <span>e1 — Plain URL encoding</span>
+            </label>
+          </div>
+        </fieldset>
         <div className="flex flex-wrap gap-2">
           <Button disabled={busy} onClick={() => void handleSave()}>Save settings</Button>
           <Button disabled={busy} variant="outline" onClick={() => void handleRebuild()}>Rebuild index</Button>

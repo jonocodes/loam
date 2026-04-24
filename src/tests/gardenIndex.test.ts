@@ -105,12 +105,13 @@ describe('garden index helpers', () => {
       'Blog',
       undefined,
       undefined,
+      undefined,
       '2026-04-22T15:00:00Z',
     )
 
     expect(rebuilt.posts).toHaveLength(1)
     expect(rebuilt.posts[0].id).toBe('2026-04-22-post-1')
-    expect(rebuilt.posts[0].slug).toBe('post-1')
+    expect(rebuilt.posts[0].slug).toBe('2026-04-22-post-1')
     expect(rebuilt.posts[0].date).toBe('2026-04-22')
     expect(rebuilt.updatedAt).toBe('2026-04-22T15:00:00Z')
   })

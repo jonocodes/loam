@@ -8,6 +8,7 @@ import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
 import {
   editorTheme,
+  imageField,
   linkPlugin,
   livePreviewPlugin,
   markdownStylePlugin,
@@ -57,6 +58,7 @@ export function MarkdownEditor({ value, onChange, readOnly = false }: Props) {
         livePreviewPlugin,
         markdownStylePlugin,
         linkPlugin(),
+        imageField(),
         editorTheme,
         baseTheme,
         ...(readOnlyExtension ? [readOnlyExtension] : []),

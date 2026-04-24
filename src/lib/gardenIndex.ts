@@ -26,7 +26,9 @@ export function toIndexEntry(meta: GardenPostMeta, contentUrl: string): GardenIn
     throw new Error(`Post ${meta.id} has no publishedAt timestamp`)
   }
 
-  const { date, slug } = splitIdDateAndSlug(meta.id)
+  const { slug: titleSlug } = splitIdDateAndSlug(meta.id)
+  const date = meta.publishedAt.slice(0, 10)
+  const slug = `${date}-${titleSlug}`
 
   return {
     id: meta.id,
@@ -96,6 +98,7 @@ export function rebuildIndexFromPublishedMeta(
   title = 'Loam',
   tagline?: string,
   urlPrefix?: string,
+  urlEncoding?: 'e1' | 'e2',
   now = new Date().toISOString(),
 ): GardenIndex {
   const posts = metaRecords
@@ -112,6 +115,7 @@ export function rebuildIndexFromPublishedMeta(
     title,
     ...(tagline !== undefined ? { tagline } : {}),
     ...(urlPrefix !== undefined ? { urlPrefix } : {}),
+    ...(urlEncoding !== undefined ? { urlEncoding } : {}),
     updatedAt: now,
     posts: sortPostsDescendingByPublishedAt(posts),
   }

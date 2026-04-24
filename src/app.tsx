@@ -41,6 +41,7 @@ export function App() {
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
+  const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState<GardenPostMeta["status"]>("draft");
 
   const [busy, setBusy] = useState(false);
@@ -85,6 +86,7 @@ export function App() {
     setTitle(selected.title);
     setExcerpt(selected.excerpt);
     setStatus(selected.status);
+    setPostDate(selected.publishedAt ? selected.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
     setMessage("");
     setError("");
 
@@ -101,6 +103,7 @@ export function App() {
     setTitle("");
     setExcerpt("");
     setBody("");
+    setPostDate(new Date().toISOString().slice(0, 10));
     setStatus("draft");
     setError("");
     setMessage("");
@@ -182,7 +185,7 @@ export function App() {
       const postId = id ?? (await generatePostId(resolvedTitle || "untitled"));
       const createdAt = selectedMeta?.createdAt ?? now;
       const nextStatus = selectedMeta?.status ?? "draft";
-      const nextPublishedAt = selectedMeta?.publishedAt ?? null;
+      const nextPublishedAt = postDate ? new Date(postDate).toISOString() : (selectedMeta?.publishedAt ?? null);
       const nextDeletedAt = selectedMeta?.deletedAt ?? null;
 
       const meta: GardenPostMeta = {
@@ -330,6 +333,11 @@ export function App() {
             <label className="grid gap-1 text-sm">
               <span className="font-medium">Excerpt</span>
               <Input value={excerpt} onChange={(event) => setExcerpt(event.target.value)} />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium">Date</span>
+              <Input type="date" value={postDate} onChange={(event) => setPostDate(event.target.value)} />
             </label>
 
             <label className="grid gap-1 text-sm">

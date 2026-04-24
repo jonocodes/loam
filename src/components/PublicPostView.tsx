@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MarkdownEditor } from './MarkdownEditor'
+import { MarkdownViewer } from './MarkdownViewer'
 import { navigate } from '../lib/navigate'
 import { encodeIndexToken } from '../lib/indexToken'
 import { getPublicIndexUrl } from '../lib/remotestorage'
-import type { GardenIndexEntry } from '../lib/types'
+import type { GardenIndex, GardenIndexEntry } from '../lib/types'
+import type { UrlEncoding } from '../lib/indexToken'
 
 interface Props {
   postId: string
@@ -24,6 +25,7 @@ function getHistoryEntry(): GardenIndexEntry | null {
 export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }: Props) {
   const [body, setBody] = useState('')
   const [post, setPost] = useState<GardenIndexEntry | null>(getHistoryEntry)
+  const [urlEncoding, setUrlEncoding] = useState<UrlEncoding>('e2')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,7 +49,8 @@ export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }
           if (!indexRes.ok) {
             throw new Error(`Unable to load garden index (${indexRes.status})`)
           }
-          const index = (await indexRes.json()) as { posts?: GardenIndexEntry[] }
+          const index = (await indexRes.json()) as GardenIndex
+          if (index.urlEncoding) setUrlEncoding(index.urlEncoding)
           entry = index.posts?.find((item) => item.id === postId) ?? null
           if (!entry) {
             throw new Error('Post not found in index.')
@@ -91,8 +94,8 @@ export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }
         <div className="mb-2">
           <a
             className="text-sm text-slate-700 underline underline-offset-4"
-            href={indexBasePath ?? (indexUrl ? `/p/${encodeIndexToken(indexUrl)}` : '/')}
-            onClick={(e) => { e.preventDefault(); navigate(indexBasePath ?? (indexUrl ? `/p/${encodeIndexToken(indexUrl)}` : '/')) }}
+            href={indexBasePath ?? (indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/')}
+            onClick={(e) => { e.preventDefault(); navigate(indexBasePath ?? (indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/')) }}
           >
             ← Back to home
           </a>
@@ -100,7 +103,14 @@ export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }
         <h1 className="text-3xl font-semibold text-slate-900">{post?.title ?? postId}</h1>
         {post?.updatedAt ? <p className="mt-2 text-xs text-slate-500">Updated {new Date(post.updatedAt).toLocaleString()}</p> : null}
       </header>
-      {loading ? <p className="text-slate-500">Loading...</p> : <MarkdownEditor value={body} onChange={setBody} readOnly />}
+      {loading ? <p className="text-slate-500">Loading...</p> : <MarkdownViewer value={body} />}
+
+      <footer className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
+        Published with{' '}
+        <a className="underline underline-offset-4 hover:text-slate-600" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
+          Loam
+        </a>
+      </footer>
     </main>
   )
 }

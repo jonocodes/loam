@@ -28,8 +28,12 @@ function publicClient() {
 }
 
 function itemUrl(path: string): string | null {
-  const url = publicClient().getItemURL(path)
-  return typeof url === 'string' ? url : null
+  try {
+    const url = publicClient().getItemURL(path)
+    return typeof url === 'string' ? url : null
+  } catch {
+    return null
+  }
 }
 
 const POSTS_PATH = 'posts/'

@@ -84,7 +84,7 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
           const postUrl = indexBasePath
             ? `${window.location.origin}${indexBasePath}/${post.id}`
             : indexUrl
-              ? `${window.location.origin}/p/${encodeIndexToken(indexUrl)}/${post.id}`
+              ? `${window.location.origin}/p/${encodeIndexToken(indexUrl, index.urlEncoding ?? 'e2')}/${post.id}`
               : `${window.location.origin}/public/${post.id}`
 
           return (
@@ -102,6 +102,13 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
           )
         })}
       </ul>
+
+      <footer className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
+        Published with{' '}
+        <a className="underline underline-offset-4 hover:text-slate-600" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
+          Loam
+        </a>
+      </footer>
     </main>
   )
 }
