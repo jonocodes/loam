@@ -3,11 +3,11 @@ import { MarkdownViewer } from './MarkdownViewer'
 import { navigate } from '../lib/navigate'
 import { encodeIndexToken } from '../lib/indexToken'
 import { getPublicIndexUrl } from '../lib/remotestorage'
-import type { GardenIndex, GardenIndexEntry } from '../lib/types'
+import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 import type { UrlEncoding } from '../lib/indexToken'
 
 interface Props {
-  postId: string
+  postSlug: string
   indexUrl?: string
   indexBasePath?: string
 }
@@ -22,7 +22,7 @@ function getHistoryEntry(): GardenIndexEntry | null {
   return state?.entry ?? null
 }
 
-export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }: Props) {
+export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath }: Props) {
   const [body, setBody] = useState('')
   const [post, setPost] = useState<GardenIndexEntry | null>(getHistoryEntry)
   const [urlEncoding, setUrlEncoding] = useState<UrlEncoding>('e2')
@@ -51,7 +51,7 @@ export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }
           }
           const index = (await indexRes.json()) as GardenIndex
           if (index.urlEncoding) setUrlEncoding(index.urlEncoding)
-          entry = index.posts?.find((item) => item.id === postId) ?? null
+          entry = index.posts?.find((item) => item.slug === postSlug) ?? null
           if (!entry) {
             throw new Error('Post not found in index.')
           }
@@ -82,7 +82,7 @@ export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }
     return () => {
       cancelled = true
     }
-  }, [indexUrl, postId])
+  }, [indexUrl, postSlug])
 
   if (error) {
     return <p className="mx-auto max-w-3xl p-6 text-red-600">{error}</p>
@@ -94,13 +94,29 @@ export function PublicPostView({ postId, indexUrl: propIndexUrl, indexBasePath }
         <div className="mb-2">
           <a
             className="text-sm text-slate-700 underline underline-offset-4"
-            href={indexBasePath ?? (indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/')}
-            onClick={(e) => { e.preventDefault(); navigate(indexBasePath ?? (indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/')) }}
+            href={(() => {
+              if (indexBasePath) return indexBasePath
+              if (window.location.pathname !== '/') return indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/'
+              return new URLSearchParams(window.location.search).has('index') && indexUrl
+                ? `/?index=${encodeURIComponent(indexUrl)}`
+                : '/'
+            })()}
+            onClick={(e) => {
+              e.preventDefault()
+              const href = (() => {
+                if (indexBasePath) return indexBasePath
+                if (window.location.pathname !== '/') return indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/'
+                return new URLSearchParams(window.location.search).has('index') && indexUrl
+                  ? `/?index=${encodeURIComponent(indexUrl)}`
+                  : '/'
+              })()
+              navigate(href)
+            }}
           >
             ← Back to home
           </a>
         </div>
-        <h1 className="text-3xl font-semibold text-slate-900">{post?.title ?? postId}</h1>
+        <h1 className="text-3xl font-semibold text-slate-900">{post?.title ?? postSlug}</h1>
         {post?.updatedAt ? <p className="mt-2 text-xs text-slate-500">Updated {new Date(post.updatedAt).toLocaleString()}</p> : null}
       </header>
       {loading ? <p className="text-slate-500">Loading...</p> : <MarkdownViewer value={body} />}

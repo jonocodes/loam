@@ -9,14 +9,14 @@ export function slugifyTitle(title: string): string {
   return base || 'post'
 }
 
-export function buildDatedSlugId(title: string, date = new Date()): string {
+export function buildDatedSlug(title: string, date = new Date()): string {
   const yyyy = String(date.getUTCFullYear())
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
   const dd = String(date.getUTCDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}-${slugifyTitle(title)}`
 }
 
-export function ensureUniqueSlugId(baseId: string, existingIds: Iterable<string>): string {
+export function ensureUniqueSlug(baseId: string, existingIds: Iterable<string>): string {
   const existing = new Set(existingIds)
   if (!existing.has(baseId)) {
     return baseId

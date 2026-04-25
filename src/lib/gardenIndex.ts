@@ -1,19 +1,8 @@
-import type { GardenIndex, GardenIndexEntry, GardenPostMeta } from './types'
-
-function splitIdDateAndSlug(id: string): { date: string; slug: string } {
-  const datePart = id.slice(0, 10)
-  const slugPart = id.slice(11)
-  const hasDate = /^\d{4}-\d{2}-\d{2}$/.test(datePart)
-
-  return {
-    date: hasDate ? datePart : '',
-    slug: slugPart || id,
-  }
-}
+import type { GardenIndex, GardenIndexEntry, GardenPostMeta } from './schema'
 
 export function createEmptyIndex(title = 'Loam', tagline?: string, now = new Date().toISOString()): GardenIndex {
   return {
-    version: 2,
+    version: 1,
     title,
     ...(tagline !== undefined ? { tagline } : {}),
     updatedAt: now,
@@ -23,19 +12,18 @@ export function createEmptyIndex(title = 'Loam', tagline?: string, now = new Dat
 
 export function toIndexEntry(meta: GardenPostMeta, contentUrl: string): GardenIndexEntry {
   if (!meta.publishedAt) {
-    throw new Error(`Post ${meta.id} has no publishedAt timestamp`)
+    throw new Error(`Post ${meta.slug} has no publishedAt timestamp`)
   }
 
-  const { slug: titleSlug } = splitIdDateAndSlug(meta.id)
   const date = meta.publishedAt.slice(0, 10)
-  const slug = `${date}-${titleSlug}`
 
   return {
-    id: meta.id,
-    slug,
+    slug: meta.slug,
     date,
     title: meta.title,
     excerpt: meta.excerpt,
+    ...(meta.tags !== undefined ? { tags: meta.tags } : {}),
+    ...(meta.mediaType !== undefined ? { mediaType: meta.mediaType } : {}),
     publishedAt: meta.publishedAt,
     updatedAt: meta.updatedAt,
     contentUrl,
@@ -47,7 +35,7 @@ export function sortPostsDescendingByPublishedAt(posts: GardenIndexEntry[]): Gar
 }
 
 export function upsertIndexEntry(index: GardenIndex, entry: GardenIndexEntry, now = new Date().toISOString()): GardenIndex {
-  const filtered = index.posts.filter((post) => post.id !== entry.id)
+  const filtered = index.posts.filter((post) => post.slug !== entry.slug)
   const posts = sortPostsDescendingByPublishedAt([...filtered, entry])
 
   return {
@@ -57,11 +45,11 @@ export function upsertIndexEntry(index: GardenIndex, entry: GardenIndexEntry, no
   }
 }
 
-export function removeIndexEntry(index: GardenIndex, postId: string, now = new Date().toISOString()): GardenIndex {
+export function removeIndexEntry(index: GardenIndex, postSlug: string, now = new Date().toISOString()): GardenIndex {
   return {
     ...index,
     updatedAt: now,
-    posts: index.posts.filter((post) => post.id !== postId),
+    posts: index.posts.filter((post) => post.slug !== postSlug),
   }
 }
 
@@ -94,7 +82,7 @@ export function markMetaDeleted(meta: GardenPostMeta, now = new Date().toISOStri
 
 export function rebuildIndexFromPublishedMeta(
   metaRecords: GardenPostMeta[],
-  contentUrlById: (id: string) => string | null,
+  contentUrlBySlug: (slug: string) => string | null,
   title = 'Loam',
   tagline?: string,
   urlPrefix?: string,
@@ -105,13 +93,13 @@ export function rebuildIndexFromPublishedMeta(
     .filter((meta) => meta.status === 'published')
     .filter((meta) => Boolean(meta.publishedAt))
     .map((meta) => {
-      const contentUrl = contentUrlById(meta.id)
+      const contentUrl = contentUrlBySlug(meta.slug)
       return contentUrl ? toIndexEntry(meta, contentUrl) : null
     })
     .filter((entry): entry is GardenIndexEntry => entry !== null)
 
   return {
-    version: 2,
+    version: 1,
     title,
     ...(tagline !== undefined ? { tagline } : {}),
     ...(urlPrefix !== undefined ? { urlPrefix } : {}),
@@ -143,7 +131,7 @@ export function toJsonFeed(index: GardenIndex, feedUrl?: string): JsonFeedV1 {
     title: index.title,
     ...(feedUrl ? { feed_url: feedUrl } : {}),
     items: index.posts.map((post) => ({
-      id: post.id,
+      id: post.contentUrl,
       url: post.contentUrl,
       title: post.title,
       summary: post.excerpt,

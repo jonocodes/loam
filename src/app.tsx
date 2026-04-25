@@ -7,10 +7,12 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent, CardHeader } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { MarkdownEditor } from "./components/MarkdownEditor";
-import { deletePost, generatePostId, publishPost, unpublishPost } from "./lib/gardenService";
+import { MarkdownRenderView } from "./components/MarkdownRenderView";
+import { deletePost, generateSlug, publishPost, unpublishPost } from "./lib/gardenService";
 import { SettingsView } from "./components/SettingsView";
 import {
   clearCloudSharingCache,
+  fetchWellKnownIndexUrl,
   isConnected,
   loadPublicIndexUrl,
   onConnected,
@@ -19,26 +21,29 @@ import {
   pullGardenSetting,
   pullIndex,
   pullPostMarkdown,
+  removePostMarkdown,
+  removePostMeta,
   storePostMarkdown,
   storePostMeta,
 } from "./lib/remotestorage";
 import { parseMarkdownToPost } from "./lib/markdown";
 import { decodeIndexToken, encodeIndexToken } from "./lib/indexToken";
-import type { GardenPostMeta } from "./lib/types";
+import type { GardenPostMeta } from "./lib/schema";
 
 function sortByUpdatedDescending(items: GardenPostMeta[]): GardenPostMeta[] {
   return [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export function App() {
-  const [path, setPath] = useState(window.location.pathname);
+  const [path, setPath] = useState(window.location.pathname + window.location.search);
   const [urlPrefix, setUrlPrefix] = useState('');
   const [connected, setConnected] = useState(isConnected());
   const [view, setView] = useState<"posts" | "settings">("posts");
   const [items, setItems] = useState<GardenPostMeta[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 
-  const [id, setId] = useState<string | null>(null);
+  const [slug, setSlug] = useState<string>('');
+  const [originalSlug, setOriginalSlug] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [body, setBody] = useState("");
@@ -46,6 +51,8 @@ export function App() {
   const [status, setStatus] = useState<GardenPostMeta["status"]>("draft");
 
   const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null);
+  // undefined = still checking, null = not found, string = found
+  const [wellKnownIndexUrl, setWellKnownIndexUrl] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -57,16 +64,18 @@ export function App() {
 
   useEffect(() => {
     if (!connected) { setPublicIndexUrl(null); return }
-    void loadPublicIndexUrl().then(setPublicIndexUrl)
+    void loadPublicIndexUrl().then(setPublicIndexUrl).catch(() => setPublicIndexUrl(null))
   }, [connected]);
 
   useEffect(() => {
     const connectedHandler = () => setConnected(true);
     const disconnectedHandler = () => { setConnected(false); clearCloudSharingCache(); };
-    const popStateHandler = () => setPath(window.location.pathname);
+    const popStateHandler = () => setPath(window.location.pathname + window.location.search);
     onConnected(connectedHandler);
     onDisconnected(disconnectedHandler);
     window.addEventListener("popstate", popStateHandler);
+
+    void fetchWellKnownIndexUrl().then(setWellKnownIndexUrl);
 
     void refreshList().catch((err: unknown) => {
       setError(err instanceof Error ? err.message : String(err));
@@ -84,12 +93,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedSlug) return;
 
-    const selected = items.find((item) => item.id === selectedId);
+    const selected = items.find((item) => item.slug === selectedSlug);
     if (!selected) return;
 
-    setId(selected.id);
+    setSlug(selected.slug);
+    setOriginalSlug(selected.slug);
     setTitle(selected.title);
     setExcerpt(selected.excerpt);
     setStatus(selected.status);
@@ -97,16 +107,17 @@ export function App() {
     setMessage("");
     setError("");
 
-    void pullPostMarkdown(selected.id)
+    void pullPostMarkdown(selected.slug)
       .then((content) => setBody(content ?? ""))
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : String(err));
       });
-  }, [selectedId, items]);
+  }, [selectedSlug, items]);
 
   function clearEditor(): void {
-    setSelectedId(null);
-    setId(null);
+    setSelectedSlug(null);
+    setSlug('');
+    setOriginalSlug(null);
     setTitle("");
     setExcerpt("");
     setBody("");
@@ -116,7 +127,10 @@ export function App() {
     setMessage("");
   }
 
-  const selectedMeta = useMemo(() => items.find((item) => item.id === id) ?? null, [items, id]);
+  const selectedMeta = useMemo(
+    () => items.find((item) => item.slug === (originalSlug ?? slug)) ?? null,
+    [items, originalSlug, slug]
+  );
 
   const publicIndexToken = publicIndexUrl ? encodeIndexToken(publicIndexUrl) : null;
 
@@ -128,25 +142,50 @@ export function App() {
     : null;
 
   const publicPostPageUrl =
-    id && indexSegment ? `${window.location.origin}/p/${indexSegment}/${id}` : null;
+    originalSlug && indexSegment
+      ? `${window.location.origin}/p/${indexSegment}/${originalSlug}`
+      : null;
 
-  if (path === "/") {
+  const pathname = path.split("?")[0];
+
+  if (pathname === "/") {
+    const params = new URLSearchParams(window.location.search);
+    const indexQueryUrl = params.get("index");
+    const postQuerySlug = params.get("post");
+    const resolvedIndexUrl = indexQueryUrl ?? (wellKnownIndexUrl !== undefined ? wellKnownIndexUrl : null);
+
+    if (resolvedIndexUrl) {
+      if (postQuerySlug) {
+        return <PublicPostView postSlug={postQuerySlug} indexUrl={resolvedIndexUrl} />;
+      }
+      return <PublicIndexView indexUrl={resolvedIndexUrl} />;
+    }
+
+    if (wellKnownIndexUrl === undefined) {
+      return null; // briefly blank while checking /.well-known/loam.json
+    }
+
     return <LandingView />;
   }
 
-  if (path.startsWith("/public/")) {
-    const postIdFromPath = path.split("/").filter(Boolean)[1];
-    if (!postIdFromPath) {
-      return <p className="mx-auto max-w-3xl p-6 text-red-600">Missing post id in URL.</p>;
-    }
-    return <PublicPostView postId={postIdFromPath} />;
+  if (pathname.startsWith("/render/")) {
+    const encodedUrl = pathname.slice("/render/".length);
+    return <MarkdownRenderView encodedUrl={encodedUrl} />;
   }
 
-  if (path.startsWith("/p/")) {
-    // Structure: /p/{freetext}/{encoded}[/{postId}]
-    const parts = path.split("/").filter(Boolean);
+  if (pathname.startsWith("/public/")) {
+    const postSlug = pathname.split("/").filter(Boolean)[1];
+    if (!postSlug) {
+      return <p className="mx-auto max-w-3xl p-6 text-red-600">Missing post slug in URL.</p>;
+    }
+    return <PublicPostView postSlug={postSlug} />;
+  }
+
+  if (pathname.startsWith("/p/")) {
+    // Structure: /p/{freetext}/{encoded}[/{postSlug}]
+    const parts = pathname.split("/").filter(Boolean);
     const encodedPart = parts[2];
-    const postId = parts[3];
+    const postSlug = parts[3];
 
     const indexUrl = encodedPart ? decodeIndexToken(encodedPart) : null;
 
@@ -160,10 +199,10 @@ export function App() {
 
     const indexBasePath = `/p/${parts[1]}/${encodedPart ?? ''}`;
 
-    if (postId) {
+    if (postSlug) {
       return (
         <PublicPostView
-          postId={postId}
+          postSlug={postSlug}
           indexUrl={indexUrl ?? undefined}
           indexBasePath={indexBasePath}
         />
@@ -172,7 +211,7 @@ export function App() {
     return <PublicIndexView indexUrl={indexUrl ?? undefined} indexBasePath={indexBasePath} />;
   }
 
-  if (path !== "/write") {
+  if (pathname !== "/write") {
     return <LandingView />;
   }
 
@@ -188,7 +227,12 @@ export function App() {
       const resolvedExcerpt = excerpt.trim() || parsed.excerpt;
       const parsedBody = parsed.body;
 
-      const postId = id ?? (await generatePostId(resolvedTitle || "untitled"));
+      const resolvedSlug = slug.trim()
+        ? slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
+        : await generateSlug(resolvedTitle || 'untitled');
+
+      const slugChanged = originalSlug !== null && resolvedSlug !== originalSlug;
+
       const createdAt = selectedMeta?.createdAt ?? now;
       const nextStatus = selectedMeta?.status ?? "draft";
       const nextPublishedAt = postDate ? new Date(postDate).toISOString() : (selectedMeta?.publishedAt ?? null);
@@ -196,7 +240,7 @@ export function App() {
 
       const meta: GardenPostMeta = {
         version: 1,
-        id: postId,
+        slug: resolvedSlug,
         title: resolvedTitle,
         excerpt: resolvedExcerpt,
         status: nextStatus,
@@ -206,16 +250,30 @@ export function App() {
         deletedAt: nextDeletedAt,
       };
 
-      await storePostMeta(meta);
-      await storePostMarkdown(postId, parsedBody);
+      if (slugChanged && originalSlug) {
+        // Save at new slug, delete old
+        await storePostMeta(meta);
+        await storePostMarkdown(resolvedSlug, parsedBody);
+        await removePostMeta(originalSlug);
+        await removePostMarkdown(originalSlug);
+        if (nextStatus === 'published') {
+          setMessage('Saved. Post was published — republish to update the public site.');
+        } else {
+          setMessage('Saved');
+        }
+      } else {
+        await storePostMeta(meta);
+        await storePostMarkdown(resolvedSlug, parsedBody);
+        setMessage('Saved');
+      }
 
-      setId(postId);
+      setSlug(resolvedSlug);
+      setOriginalSlug(resolvedSlug);
       setTitle(meta.title);
       setExcerpt(meta.excerpt);
       setBody(parsedBody);
       setStatus(meta.status);
       await refreshList();
-      setMessage("Draft saved");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -229,23 +287,25 @@ export function App() {
     setMessage("");
 
     try {
-      if (!id) {
+      if (!slug && !originalSlug) {
         throw new Error("Select or save a post first");
       }
 
+      const activeSlug = originalSlug ?? slug;
+
       if (action === "publish") {
-        await publishPost(id);
+        await publishPost(activeSlug);
         setMessage("Post published");
         setStatus("published");
         void loadPublicIndexUrl().then(setPublicIndexUrl);
       } else if (action === "unpublish") {
-        await unpublishPost(id);
+        await unpublishPost(activeSlug);
         setMessage("Post unpublished");
         setStatus("unpublished");
       } else if (action === "delete") {
         const confirmed = window.confirm("Delete this post markdown and metadata?");
         if (!confirmed) return;
-        await deletePost(id);
+        await deletePost(activeSlug);
         setMessage("Post deleted");
         clearEditor();
       }
@@ -290,8 +350,10 @@ export function App() {
           </nav>
         </div>
         <p>
-          Connection status: <strong>{connected ? "Connected" : "Not connected"}</strong>. Use the
-          sync widget in the page corner to connect.
+          Connection status: <strong>{connected ? "Connected" : "Not connected"}</strong>.{" "}
+          {connected
+            ? "Your posts sync to remote storage."
+            : "Use the sync widget in the page corner if you want your site to be public."}
         </p>
       </header>
 
@@ -311,16 +373,16 @@ export function App() {
             {items.length === 0 ? <p className="text-sm text-slate-500">No posts yet.</p> : null}
             <ul className="space-y-2">
               {items.map((item) => (
-                <li key={item.id}>
+                <li key={item.slug}>
                   <Button
                     variant="secondary"
                     className="h-auto w-full justify-start p-3 text-left"
-                    onClick={() => setSelectedId(item.id)}
+                    onClick={() => setSelectedSlug(item.slug)}
                   >
                     <div>
                       <div className="font-semibold">{item.title}</div>
                       <div className="text-xs text-slate-500">
-                        {item.status} · {item.id}
+                        {item.status} · {item.slug}
                       </div>
                     </div>
                   </Button>
@@ -335,6 +397,16 @@ export function App() {
             <label className="grid gap-1 text-sm">
               <span className="font-medium">Title</span>
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+            </label>
+
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium">Slug</span>
+              <Input
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="(autogenerated)"
+              />
+              <span className="text-xs text-slate-500">URL-friendly identifier. Leave empty to auto-generate from title.</span>
             </label>
 
             <label className="grid gap-1 text-sm">
@@ -354,18 +426,22 @@ export function App() {
 
             <div className="flex flex-wrap gap-2">
               <Button disabled={busy} onClick={() => void saveDraft()}>
-                Save draft
+                Save
               </Button>
-              <Button disabled={busy} variant="secondary" onClick={() => void runAction("publish")}>
-                Publish
-              </Button>
-              <Button
-                disabled={busy}
-                variant="secondary"
-                onClick={() => void runAction("unpublish")}
-              >
-                Unpublish
-              </Button>
+              <span title={!connected ? "Connect a remote storage provider to publish" : undefined}>
+                <Button disabled={busy || !connected} variant="secondary" onClick={() => void runAction("publish")}>
+                  Publish
+                </Button>
+              </span>
+              <span title={!connected ? "Connect a remote storage provider to unpublish" : undefined}>
+                <Button
+                  disabled={busy || !connected}
+                  variant="secondary"
+                  onClick={() => void runAction("unpublish")}
+                >
+                  Unpublish
+                </Button>
+              </span>
               <Button
                 disabled={busy}
                 variant="destructive"

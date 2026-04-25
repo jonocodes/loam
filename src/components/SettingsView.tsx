@@ -25,11 +25,11 @@ export function SettingsView({ onSave }: Props = {}) {
 
   useEffect(() => {
     void Promise.all([
-      pullGardenSetting('title'),
-      pullGardenSetting('tagline'),
-      pullIndex(),
-      loadPublicIndexUrl(),
-      resolvePublicFeedUrl(),
+      pullGardenSetting('title').catch(() => null),
+      pullGardenSetting('tagline').catch(() => null),
+      pullIndex().catch(() => null),
+      loadPublicIndexUrl().catch(() => null),
+      resolvePublicFeedUrl().catch(() => null),
     ]).then(([t, tl, index, indexUrl, feedUrl]) => {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
@@ -108,17 +108,31 @@ export function SettingsView({ onSave }: Props = {}) {
         {publicIndexUrl ? (() => {
           const token = encodeIndexToken(publicIndexUrl, urlEncoding)
           const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
+          const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
           return (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="mb-1 text-xs font-medium text-slate-500">Your public site</p>
-              <a
-                className="break-all text-sm font-medium text-slate-900 underline underline-offset-4"
-                href={siteUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {siteUrl}
-              </a>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <div>
+                <p className="mb-1 text-xs font-medium text-slate-500">Your public site</p>
+                <a
+                  className="break-all text-sm font-medium text-slate-900 underline underline-offset-4"
+                  href={siteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {siteUrl}
+                </a>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-slate-500">URL-param version (for domain masking)</p>
+                <a
+                  className="break-all text-sm text-slate-700 underline underline-offset-4"
+                  href={maskedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {maskedUrl}
+                </a>
+              </div>
             </div>
           )
         })() : null}

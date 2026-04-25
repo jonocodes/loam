@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "generate-schema": "tsx scripts/generate-schema.ts"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -26,7 +27,8 @@
     "react-dom": "^19.2.5",
     "remotestorage-widget": "^1.8.1",
     "remotestoragejs": "^2.0.0-beta.8",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
@@ -34,6 +36,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "tailwindcss": "^4.2.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^8.0.8",
     "vitest": "^4.1.4"

@@ -9,7 +9,7 @@ import {
   unpublishMeta,
   upsertIndexEntry,
 } from './gardenIndex'
-import { buildDatedSlugId, ensureUniqueSlugId } from './ids'
+import { buildDatedSlug, ensureUniqueSlug } from './slugs'
 import {
   markdownExists,
   pullAllPostMeta,
@@ -26,17 +26,17 @@ import {
   storeIndex,
   storePostMeta,
 } from './remotestorage'
-import type { GardenIndex } from './types'
+import type { GardenIndex } from './schema'
 
 
 async function loadIndexOrCreate(): Promise<GardenIndex> {
   return (await pullIndex()) ?? createEmptyIndex()
 }
 
-export async function generatePostId(title: string, date = new Date()): Promise<string> {
+export async function generateSlug(title: string, date = new Date()): Promise<string> {
   const allMeta = await pullAllPostMeta()
-  const base = buildDatedSlugId(title, date)
-  return ensureUniqueSlugId(base, allMeta.map((meta) => meta.id))
+  const base = buildDatedSlug(title, date)
+  return ensureUniqueSlug(base, allMeta.map((meta) => meta.slug))
 }
 
 async function storeIndexAndFeed(nextIndex: GardenIndex): Promise<void> {
@@ -45,22 +45,22 @@ async function storeIndexAndFeed(nextIndex: GardenIndex): Promise<void> {
   await storeFeed(toJsonFeed(nextIndex, feedUrl ?? undefined))
 }
 
-export async function publishPost(id: string): Promise<void> {
-  const existingMeta = await pullPostMeta(id)
+export async function publishPost(slug: string): Promise<void> {
+  const existingMeta = await pullPostMeta(slug)
   if (!existingMeta) {
-    throw new Error(`Metadata not found for post ${id}`)
+    throw new Error(`Metadata not found for post ${slug}`)
   }
 
-  const hasMarkdown = await markdownExists(id)
+  const hasMarkdown = await markdownExists(slug)
   if (!hasMarkdown) {
-    throw new Error(`Markdown not found for post ${id}`)
+    throw new Error(`Markdown not found for post ${slug}`)
   }
 
   const nextMeta = publishMeta(existingMeta)
   await storePostMeta(nextMeta)
 
   const index = await loadIndexOrCreate()
-  const contentUrl = await resolvePublicPostUrl(id)
+  const contentUrl = await resolvePublicPostUrl(slug)
   if (!contentUrl) {
     throw new Error('Unable to generate public content URL for this backend')
   }
@@ -72,32 +72,32 @@ export async function publishPost(id: string): Promise<void> {
   if (publicIndexUrl) await storeGardenSetting('publicIndexUrl', publicIndexUrl)
 }
 
-export async function unpublishPost(id: string): Promise<void> {
-  const existingMeta = await pullPostMeta(id)
+export async function unpublishPost(slug: string): Promise<void> {
+  const existingMeta = await pullPostMeta(slug)
   if (!existingMeta) {
-    throw new Error(`Metadata not found for post ${id}`)
+    throw new Error(`Metadata not found for post ${slug}`)
   }
 
   const nextMeta = unpublishMeta(existingMeta)
   await storePostMeta(nextMeta)
 
   const index = await loadIndexOrCreate()
-  const nextIndex = removeIndexEntry(index, id)
+  const nextIndex = removeIndexEntry(index, slug)
   await storeIndexAndFeed(nextIndex)
 }
 
-export async function deletePost(id: string): Promise<void> {
-  const existingMeta = await pullPostMeta(id)
+export async function deletePost(slug: string): Promise<void> {
+  const existingMeta = await pullPostMeta(slug)
   if (existingMeta) {
     const deletedMeta = markMetaDeleted(existingMeta)
     await storePostMeta(deletedMeta)
   }
 
-  await removePostMarkdown(id)
-  await removePostMeta(id)
+  await removePostMarkdown(slug)
+  await removePostMeta(slug)
 
   const index = await loadIndexOrCreate()
-  const nextIndex = removeIndexEntry(index, id)
+  const nextIndex = removeIndexEntry(index, slug)
   await storeIndexAndFeed(nextIndex)
 }
 
@@ -113,16 +113,16 @@ export async function rebuildIndex(): Promise<void> {
   const publishedWithExistence = await Promise.all(
     allMeta
       .filter((meta) => meta.status === 'published' && Boolean(meta.publishedAt))
-      .map(async (meta) => ({ meta, exists: await markdownExists(meta.id), contentUrl: await resolvePublicPostUrl(meta.id) })),
+      .map(async (meta) => ({ meta, exists: await markdownExists(meta.slug), contentUrl: await resolvePublicPostUrl(meta.slug) })),
   )
 
   const validMeta = publishedWithExistence.filter((item) => item.exists && Boolean(item.contentUrl)).map((item) => item.meta)
-  const contentUrlMap = new Map(publishedWithExistence.map((item) => [item.meta.id, item.contentUrl ?? null]))
+  const contentUrlMap = new Map(publishedWithExistence.map((item) => [item.meta.slug, item.contentUrl ?? null]))
 
   const existingIndex = await pullIndex()
   const urlPrefix = existingIndex?.urlPrefix
   const urlEncoding = existingIndex?.urlEncoding
-  const nextIndex = rebuildIndexFromPublishedMeta(validMeta, (id) => contentUrlMap.get(id) ?? null, title, tagline, urlPrefix, urlEncoding)
+  const nextIndex = rebuildIndexFromPublishedMeta(validMeta, (slug) => contentUrlMap.get(slug) ?? null, title, tagline, urlPrefix, urlEncoding)
   await storeIndexAndFeed(nextIndex)
 
   const publicIndexUrl = await resolvePublicIndexUrl()

@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "tagline": {
+      "type": "string"
+    },
+    "urlPrefix": {
+      "type": "string"
+    },
+    "urlEncoding": {
+      "type": "string",
+      "enum": [
+        "e1",
+        "e2"
+      ]
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "posts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "contentUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "date",
+          "title",
+          "excerpt",
+          "publishedAt",
+          "updatedAt",
+          "contentUrl"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "title",
+    "updatedAt",
+    "posts"
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "version": 1,
+      "title": "Alice's Garden",
+      "tagline": "Notes on things I find interesting",
+      "urlPrefix": "alice",
+      "urlEncoding": "e2",
+      "updatedAt": "2026-04-25T10:00:00Z",
+      "posts": [
+        {
+          "slug": "2026-04-20-hello-world",
+          "date": "2026-04-20",
+          "title": "Hello World",
+          "excerpt": "My first post.",
+          "tags": [
+            "intro"
+          ],
+          "publishedAt": "2026-04-20T09:00:00Z",
+          "updatedAt": "2026-04-20T09:00:00Z",
+          "contentUrl": "https://example.com/public/loam/posts/2026-04-20-hello-world.md"
+        },
+        {
+          "slug": "2026-04-25-on-writing",
+          "date": "2026-04-25",
+          "title": "On Writing",
+          "excerpt": "Some thoughts on writing regularly.",
+          "tags": [
+            "writing",
+            "reflection"
+          ],
+          "mediaType": "text/markdown",
+          "publishedAt": "2026-04-25T10:00:00Z",
+          "updatedAt": "2026-04-25T10:00:00Z",
+          "contentUrl": "https://example.com/public/loam/posts/2026-04-25-on-writing.md"
+        }
+      ]
+    }
+  ]
+}

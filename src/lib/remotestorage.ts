@@ -1,5 +1,5 @@
 import RemoteStorage from 'remotestoragejs'
-import type { GardenIndex, GardenPostMeta } from './types'
+import type { GardenIndex, GardenPostMeta } from './schema'
 
 export const rs = new RemoteStorage({ logging: true })
 
@@ -17,6 +17,7 @@ const PUBLIC_DIR = import.meta.env.VITE_PUBLIC_DIR ?? RS_MODULE
 
 rs.access.claim(RS_MODULE, 'rw')
 rs.caching.enable(`/${RS_MODULE}/`)
+rs.caching.enable(`/public/${PUBLIC_DIR}/`)
 rs.setSyncInterval(2000)
 
 function privateClient() {
@@ -171,8 +172,8 @@ async function resolvePublicFileUrl(publicFilePath: string): Promise<string | nu
   return itemUrl(publicFilePath)
 }
 
-export async function resolvePublicPostUrl(id: string): Promise<string | null> {
-  return resolvePublicFileUrl(`${POSTS_PATH}${id}.md`)
+export async function resolvePublicPostUrl(slug: string): Promise<string | null> {
+  return resolvePublicFileUrl(`${POSTS_PATH}${slug}.md`)
 }
 
 export async function resolvePublicIndexUrl(): Promise<string | null> {
@@ -197,17 +198,28 @@ export function getPublicScopePath(): string {
   return `/public/${PUBLIC_DIR}/`
 }
 
+export async function fetchWellKnownIndexUrl(): Promise<string | null> {
+  try {
+    const res = await fetch('/.well-known/loam.json')
+    if (!res.ok) return null
+    const data = await res.json() as { indexUrl?: string }
+    return typeof data.indexUrl === 'string' ? data.indexUrl : null
+  } catch {
+    return null
+  }
+}
+
 export function getGardenSettingsUrl(): string | null {
   const url = privateClient().getItemURL(SETTINGS_PATH)
   return typeof url === 'string' ? url : null
 }
 
-export async function storePostMarkdown(id: string, markdown: string): Promise<void> {
-  await publicClient().storeFile('text/markdown', `${POSTS_PATH}${id}.md`, markdown)
+export async function storePostMarkdown(slug: string, markdown: string): Promise<void> {
+  await publicClient().storeFile('text/markdown', `${POSTS_PATH}${slug}.md`, markdown)
 }
 
-export async function pullPostMarkdown(id: string): Promise<string | null> {
-  const result = await publicClient().getFile(`${POSTS_PATH}${id}.md`)
+export async function pullPostMarkdown(slug: string): Promise<string | null> {
+  const result = await publicClient().getFile(`${POSTS_PATH}${slug}.md`)
   if (!result?.data) return null
 
   if (typeof result.data === 'string') {
@@ -221,25 +233,25 @@ export async function pullPostMarkdown(id: string): Promise<string | null> {
   return await (result.data as Blob).text()
 }
 
-export async function removePostMarkdown(id: string): Promise<void> {
-  await publicClient().remove(`${POSTS_PATH}${id}.md`)
+export async function removePostMarkdown(slug: string): Promise<void> {
+  await publicClient().remove(`${POSTS_PATH}${slug}.md`)
 }
 
 export async function storePostMeta(meta: GardenPostMeta): Promise<void> {
-  await privateClient().storeFile('application/json', `${META_PATH}${meta.id}.json`, JSON.stringify(meta))
+  await privateClient().storeFile('application/json', `${META_PATH}${meta.slug}.json`, JSON.stringify(meta))
 }
 
-export async function pullPostMeta(id: string): Promise<GardenPostMeta | null> {
-  const result = await privateClient().getFile(`${META_PATH}${id}.json`)
+export async function pullPostMeta(slug: string): Promise<GardenPostMeta | null> {
+  const result = await privateClient().getFile(`${META_PATH}${slug}.json`)
   if (!result?.data) return null
   return JSON.parse(result.data as string) as GardenPostMeta
 }
 
-export async function removePostMeta(id: string): Promise<void> {
-  await privateClient().remove(`${META_PATH}${id}.json`)
+export async function removePostMeta(slug: string): Promise<void> {
+  await privateClient().remove(`${META_PATH}${slug}.json`)
 }
 
-export async function listPostMetaIds(): Promise<string[]> {
+export async function listPostMetaSlugs(): Promise<string[]> {
   const listing = await privateClient().getListing(META_PATH)
   if (!listing) return []
 
@@ -249,9 +261,14 @@ export async function listPostMetaIds(): Promise<string[]> {
 }
 
 export async function pullAllPostMeta(): Promise<GardenPostMeta[]> {
-  const ids = await listPostMetaIds()
-  const all = await Promise.all(ids.map((id) => pullPostMeta(id)))
+  const slugs = await listPostMetaSlugs()
+  const all = await Promise.all(slugs.map((slug) => pullPostMeta(slug)))
   return all.filter((item): item is GardenPostMeta => item !== null)
+}
+
+export async function markdownExists(slug: string): Promise<boolean> {
+  const result = await publicClient().getFile(`${POSTS_PATH}${slug}.md`)
+  return Boolean(result?.data)
 }
 
 export async function storeIndex(index: GardenIndex): Promise<void> {
@@ -266,11 +283,6 @@ export async function pullIndex(): Promise<GardenIndex | null> {
 
 export async function storeFeed(feed: unknown): Promise<void> {
   await publicClient().storeFile('application/json', FEED_PATH, JSON.stringify(feed))
-}
-
-export async function markdownExists(id: string): Promise<boolean> {
-  const result = await publicClient().getFile(`${POSTS_PATH}${id}.md`)
-  return Boolean(result?.data)
 }
 
 export async function storeGardenSetting(key: string, value: string): Promise<void> {

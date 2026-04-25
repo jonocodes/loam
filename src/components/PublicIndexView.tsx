@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { navigate } from '../lib/navigate'
 import { encodeIndexToken } from '../lib/indexToken'
 import { getPublicIndexUrl } from '../lib/remotestorage'
-import type { GardenIndex, GardenIndexEntry } from '../lib/types'
+import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 
 function getIndexUrlFromQuery(): string | null {
   const params = new URLSearchParams(window.location.search)
@@ -81,14 +81,20 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
 
       <ul className="space-y-4">
         {index.posts.map((post) => {
+          const onRoot = window.location.pathname === '/'
+          const hasIndexParam = new URLSearchParams(window.location.search).has('index')
           const postUrl = indexBasePath
-            ? `${window.location.origin}${indexBasePath}/${post.id}`
-            : indexUrl
-              ? `${window.location.origin}/p/${encodeIndexToken(indexUrl, index.urlEncoding ?? 'e2')}/${post.id}`
-              : `${window.location.origin}/public/${post.id}`
+            ? `${window.location.origin}${indexBasePath}/${post.slug}`
+            : onRoot && indexUrl && !hasIndexParam
+              ? `${window.location.origin}/?post=${post.slug}`
+              : onRoot && indexUrl
+                ? `${window.location.origin}/?index=${encodeURIComponent(indexUrl)}&post=${post.slug}`
+                : indexUrl
+                  ? `${window.location.origin}/p/${encodeIndexToken(indexUrl, index.urlEncoding ?? 'e2')}/${post.slug}`
+                  : `${window.location.origin}/public/${post.slug}`
 
           return (
-            <li key={post.id} className="rounded-lg border border-slate-200 bg-white p-4">
+            <li key={post.slug} className="rounded-lg border border-slate-200 bg-white p-4">
               <a
                 className="text-lg font-semibold text-slate-900 underline underline-offset-4"
                 href={postUrl}
