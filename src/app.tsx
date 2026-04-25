@@ -151,13 +151,9 @@ export function App() {
   if (pathname === "/") {
     const params = new URLSearchParams(window.location.search);
     const indexQueryUrl = params.get("index");
-    const postQuerySlug = params.get("post");
     const resolvedIndexUrl = indexQueryUrl ?? (wellKnownIndexUrl !== undefined ? wellKnownIndexUrl : null);
 
     if (resolvedIndexUrl) {
-      if (postQuerySlug) {
-        return <PublicPostView postSlug={postQuerySlug} indexUrl={resolvedIndexUrl} />;
-      }
       return <PublicIndexView indexUrl={resolvedIndexUrl} />;
     }
 
@@ -184,6 +180,11 @@ export function App() {
   if (pathname.startsWith("/p/")) {
     // Structure: /p/{freetext}/{encoded}[/{postSlug}]
     const parts = pathname.split("/").filter(Boolean);
+
+    // /p/{slug} — well-known masked domain post
+    if (parts.length === 2 && wellKnownIndexUrl) {
+      return <PublicPostView postSlug={parts[1]} indexUrl={wellKnownIndexUrl} />;
+    }
     const encodedPart = parts[2];
     const postSlug = parts[3];
 

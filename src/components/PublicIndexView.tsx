@@ -86,7 +86,7 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
           const postUrl = indexBasePath
             ? `${window.location.origin}${indexBasePath}/${post.slug}`
             : onRoot && indexUrl && !hasIndexParam
-              ? `${window.location.origin}/?post=${post.slug}`
+              ? `${window.location.origin}/p/${post.slug}`
               : onRoot && indexUrl
                 ? `${window.location.origin}/?index=${encodeURIComponent(indexUrl)}&post=${post.slug}`
                 : indexUrl

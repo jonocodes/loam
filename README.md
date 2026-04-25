@@ -39,14 +39,38 @@ Open the local URL shown by Vite (usually `http://localhost:5173`).
 
 | Path | Description |
 |---|---|
-| `/` | Landing page |
+| `/` | Landing page (or public garden home if `/.well-known/loam.json` is present) |
 | `/write` | Editor |
 | `/p/{freetext}/{scheme:token}` | Public garden home page |
 | `/p/{freetext}/{scheme:token}/{slug}` | Public post page |
+| `/p/{slug}` | Public post page (well-known/masked domain mode) |
 | `/public/{slug}` | Public post page (query param: `?index=<url>`) |
 | `/render/{url-encoded-markdown-url}` | Fetch and render any markdown file by URL |
 
 The `{token}` is an encoded index URL. The `{freetext}` prefix is ignored by the router and exists for human readability (e.g. `/p/yourname/e2:aHR0cH…`). If no URL prefix is set in Settings, `garden` is used as the default. `{scheme}` is the encoding — `e2` is base64 URL-safe (default), `e1` is plain URL encoding.
+
+
+## Domain masking
+
+You can serve your garden from a custom domain (e.g. `garden.example.com`) without exposing the storage URL in the address bar. The app checks `/.well-known/loam.json` on startup and uses the `indexUrl` from it if present.
+
+Serve the file from your reverse proxy — example Caddy config:
+
+```
+handle /.well-known/loam.json {
+  header Content-Type application/json
+  respond `{"indexUrl":"https://storage.5apps.com/youruser/public/loam/index.json"}` 200
+}
+
+reverse_proxy localhost:82 {
+  header_up Host loam.dgt.is
+}
+```
+
+With this in place:
+- `garden.example.com/` → public garden home
+- `garden.example.com/p/{slug}` → individual post
+- The storage URL never appears in the browser address bar
 
 
 ## Editor features
