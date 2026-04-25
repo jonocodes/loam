@@ -10,8 +10,9 @@ import { MarkdownEditor } from "./components/MarkdownEditor";
 import { deletePost, generatePostId, publishPost, unpublishPost } from "./lib/gardenService";
 import { SettingsView } from "./components/SettingsView";
 import {
-  getPublicIndexUrl,
+  clearCloudSharingCache,
   isConnected,
+  loadPublicIndexUrl,
   onConnected,
   onDisconnected,
   pullAllPostMeta,
@@ -44,6 +45,7 @@ export function App() {
   const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState<GardenPostMeta["status"]>("draft");
 
+  const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -54,8 +56,13 @@ export function App() {
   }
 
   useEffect(() => {
+    if (!connected) { setPublicIndexUrl(null); return }
+    void loadPublicIndexUrl().then(setPublicIndexUrl)
+  }, [connected]);
+
+  useEffect(() => {
     const connectedHandler = () => setConnected(true);
-    const disconnectedHandler = () => setConnected(false);
+    const disconnectedHandler = () => { setConnected(false); clearCloudSharingCache(); };
     const popStateHandler = () => setPath(window.location.pathname);
     onConnected(connectedHandler);
     onDisconnected(disconnectedHandler);
@@ -110,7 +117,6 @@ export function App() {
   }
 
   const selectedMeta = useMemo(() => items.find((item) => item.id === id) ?? null, [items, id]);
-  const publicIndexUrl = getPublicIndexUrl();
 
   const publicIndexToken = publicIndexUrl ? encodeIndexToken(publicIndexUrl) : null;
 
@@ -231,6 +237,7 @@ export function App() {
         await publishPost(id);
         setMessage("Post published");
         setStatus("published");
+        void loadPublicIndexUrl().then(setPublicIndexUrl);
       } else if (action === "unpublish") {
         await unpublishPost(id);
         setMessage("Post unpublished");

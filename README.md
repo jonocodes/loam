@@ -1,6 +1,29 @@
 # Loam
 
-A minimal digital garden editor. Posts and metadata live in your own remoteStorage under `/public/loam/`.
+Loam is your minimal blog/[digital garden](https://maggieappleton.com/garden-history). You own all the data. No hosting needed. See it here: [https://loam.dgt.is](https://loam.dgt.is)
+
+## What makes this app different then others
+
+This app is [local first](https://lofi.so/), [unhosted](https://unhosted.org/), yet publicly sharable. What is this magic? [It's called the remoteStorage protocol](https://remotestorage.io/).
+
+* There is no database running on a server (ie - Wordpress), that could be shut down at any moment.
+* There is no static site generator (ie - Jekyll + Github), which also needs a server and * local development tools.
+* There is no proprietary schema that is owned by a SaaS (ie - Blogger, Squarespace), that you cant easily migrate off from.
+* There is no self hosting required (ie - Ghost or Writefreely), requiring regular maintainace and technical knowledge.
+
+All you need is a generic file storage account with Dropbox or Google. This app is entirely browser side - there is no backend. So this is no self hosting needed.
+
+If you want more space and control you can host your own remoteStorage server, like [armadietto](https://remotestorage.io/servers.html).
+
+[See Jono's personal digital garden as an example](https://garden.dgt.is).
+
+
+## Status
+
+* schema is still settling, so it may be a little unstable
+* remotestorage is working, mostly tested on 5apps.com
+* dropbox and google storage in progress
+
 
 ## Quick start
 
@@ -17,11 +40,11 @@ Open the local URL shown by Vite (usually `http://localhost:5173`).
 |---|---|
 | `/` | Landing page |
 | `/write` | Editor (requires remoteStorage connection) |
-| `/p/{freetext}/{token}` | Public garden home page |
-| `/p/{freetext}/{token}/{postId}` | Public post page |
+| `/p/{freetext}/{scheme:token}` | Public garden home page |
+| `/p/{freetext}/{scheme:token}/{postId}` | Public post page |
 | `/public/:id` | Public post page (query param: `?index=<url>`) |
 
-The `{token}` is a base64url-encoded index URL. The `{freetext}` prefix is ignored by the router and exists for human readability (e.g. `/p/yourname/aHR0cH…`). If no URL prefix is set in Settings, `garden` is used as the default freetext.
+The `{token}` is an encoded index URL. The `{freetext}` prefix is ignored by the router and exists for human readability (e.g. `/p/yourname/s1:aHR0cH…`). If no URL prefix is set in Settings, `garden` is used as the default freetext. {scheme} is the encoding scheme. e2, for example, is base64 url encoding.
 
 ## Editor features
 

@@ -62,17 +62,136 @@ export function onDisconnected(cb: () => void): void {
   rs.on('disconnected', cb)
 }
 
-export function getPublicPostUrl(id: string): string | null {
-  return itemUrl(`${POSTS_PATH}${id}.md`)
+export function clearCloudSharingCache(): void {
+  gdPublicFolderId = null
+}
+
+export function getActiveBackend(): string {
+  return (rs as unknown as { backend?: string }).backend ?? 'remotestorage'
+}
+
+async function createDropboxSharedLink(dropboxPath: string, token: string): Promise<string> {
+  const res = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ path: dropboxPath, settings: { requested_visibility: 'public' } }),
+  })
+
+  if (res.status === 409) {
+    const body = await res.json() as { error?: { '.tag': string; shared_link_already_exists?: { metadata: { url: string } } } }
+    const existing = body.error?.shared_link_already_exists?.metadata.url
+    if (existing) return dropboxToDirectUrl(existing)
+  }
+
+  if (!res.ok) throw new Error(`Dropbox sharing API error: ${res.status}`)
+  const data = await res.json() as { url: string }
+  return dropboxToDirectUrl(data.url)
+}
+
+function dropboxToDirectUrl(url: string): string {
+  return url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace(/[?&]dl=0$/, '')
+}
+
+async function googleDriveListFiles(query: string, token: string): Promise<{ id: string }[]> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&spaces=drive`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) return []
+  const data = await res.json() as { files?: { id: string }[] }
+  return data.files ?? []
+}
+
+async function googleDriveFindChild(name: string, parentId: string, isFolder: boolean, token: string): Promise<string | null> {
+  const mimeFilter = isFolder ? " and mimeType='application/vnd.google-apps.folder'" : ''
+  const query = `name='${name}' and '${parentId}' in parents and trashed=false${mimeFilter}`
+  const files = await googleDriveListFiles(query, token)
+  return files[0]?.id ?? null
+}
+
+let gdPublicFolderId: string | null = null
+
+async function ensureGoogleDrivePublicFolder(token: string): Promise<string | null> {
+  if (gdPublicFolderId) return gdPublicFolderId
+
+  // Traverse root → public → PUBLIC_DIR to find the shared folder
+  let parentId = 'root'
+  for (const segment of ['public', PUBLIC_DIR]) {
+    const id = await googleDriveFindChild(segment, parentId, true, token)
+    if (!id) return null
+    parentId = id
+  }
+
+  // Set the whole public folder public once — all children inherit
+  await fetch(`https://www.googleapis.com/drive/v3/files/${parentId}/permissions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+  })
+
+  gdPublicFolderId = parentId
+  return parentId
+}
+
+async function getGoogleDrivePublicUrl(publicFilePath: string, token: string): Promise<string | null> {
+  const folderId = await ensureGoogleDrivePublicFolder(token)
+  if (!folderId) return null
+
+  // Traverse from the cached public folder — avoids re-walking root→public→loam each time
+  const parts = publicFilePath.split('/').filter(Boolean)
+  let parentId = folderId
+  for (let i = 0; i < parts.length; i++) {
+    const id = await googleDriveFindChild(parts[i], parentId, i < parts.length - 1, token)
+    if (!id) return null
+    parentId = id
+  }
+
+  return `https://drive.usercontent.google.com/download?id=${parentId}&export=download`
+}
+
+function getRemoteToken(): string | null {
+  return (rs as unknown as { remote?: { token?: string } }).remote?.token ?? null
+}
+
+async function resolvePublicFileUrl(publicFilePath: string): Promise<string | null> {
+  const backend = getActiveBackend()
+  if (backend === 'dropbox') {
+    const token = getRemoteToken()
+    if (!token) return null
+    return createDropboxSharedLink(`/public/${PUBLIC_DIR}/${publicFilePath}`, token)
+  }
+  if (backend === 'googledrive') {
+    const token = getRemoteToken()
+    if (!token) return null
+    return getGoogleDrivePublicUrl(publicFilePath, token)
+  }
+  return itemUrl(publicFilePath)
+}
+
+export async function resolvePublicPostUrl(id: string): Promise<string | null> {
+  return resolvePublicFileUrl(`${POSTS_PATH}${id}.md`)
+}
+
+export async function resolvePublicIndexUrl(): Promise<string | null> {
+  return resolvePublicFileUrl(INDEX_PATH)
+}
+
+export async function resolvePublicFeedUrl(): Promise<string | null> {
+  return resolvePublicFileUrl(FEED_PATH)
 }
 
 export function getPublicIndexUrl(): string | null {
   return itemUrl(INDEX_PATH)
 }
 
-export function getPublicFeedUrl(): string | null {
-  return itemUrl(FEED_PATH)
+export async function loadPublicIndexUrl(): Promise<string | null> {
+  if (getActiveBackend() === 'remotestorage') return itemUrl(INDEX_PATH)
+  return pullGardenSetting('publicIndexUrl')
 }
+
 
 export function getPublicScopePath(): string {
   return `/public/${PUBLIC_DIR}/`

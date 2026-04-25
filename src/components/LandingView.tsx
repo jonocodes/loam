@@ -5,10 +5,18 @@ export function LandingView() {
     <main className="mx-auto max-w-2xl p-12 font-sans text-slate-900">
       <h1 className="text-4xl font-semibold">Loam</h1>
       <p className="mt-4 text-lg text-slate-600">
-        A simple digital garden editor that stores your posts in your own remote storage. Write and
-        publish at your own pace, with full ownership of your content. See an{" "}
+        Loam is a place to write and share thoughts at your own pace, with full ownership of your
+        content. See an{" "}
         <a href="https://garden.dgt.is" className="text-blue-500 underline" target="_blank">
           example blog here
+        </a>
+        . Learn more about{" "}
+        <a
+          href="https://github.com/jonocodes/loam"
+          className="text-blue-500 underline"
+          target="_blank"
+        >
+          how Loam works here
         </a>
         .
       </p>

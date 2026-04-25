@@ -11,8 +11,6 @@ import {
 } from './gardenIndex'
 import { buildDatedSlugId, ensureUniqueSlugId } from './ids'
 import {
-  getPublicFeedUrl,
-  getPublicPostUrl,
   markdownExists,
   pullAllPostMeta,
   pullGardenSetting,
@@ -20,6 +18,9 @@ import {
   pullPostMeta,
   removePostMarkdown,
   removePostMeta,
+  resolvePublicFeedUrl,
+  resolvePublicIndexUrl,
+  resolvePublicPostUrl,
   storeGardenSetting,
   storeFeed,
   storeIndex,
@@ -40,7 +41,8 @@ export async function generatePostId(title: string, date = new Date()): Promise<
 
 async function storeIndexAndFeed(nextIndex: GardenIndex): Promise<void> {
   await storeIndex(nextIndex)
-  await storeFeed(toJsonFeed(nextIndex, getPublicFeedUrl() ?? undefined))
+  const feedUrl = await resolvePublicFeedUrl()
+  await storeFeed(toJsonFeed(nextIndex, feedUrl ?? undefined))
 }
 
 export async function publishPost(id: string): Promise<void> {
@@ -58,13 +60,16 @@ export async function publishPost(id: string): Promise<void> {
   await storePostMeta(nextMeta)
 
   const index = await loadIndexOrCreate()
-  const contentUrl = getPublicPostUrl(id)
+  const contentUrl = await resolvePublicPostUrl(id)
   if (!contentUrl) {
     throw new Error('Unable to generate public content URL for this backend')
   }
 
   const nextIndex = upsertIndexEntry(index, toIndexEntry(nextMeta, contentUrl))
   await storeIndexAndFeed(nextIndex)
+
+  const publicIndexUrl = await resolvePublicIndexUrl()
+  if (publicIndexUrl) await storeGardenSetting('publicIndexUrl', publicIndexUrl)
 }
 
 export async function unpublishPost(id: string): Promise<void> {
@@ -108,7 +113,7 @@ export async function rebuildIndex(): Promise<void> {
   const publishedWithExistence = await Promise.all(
     allMeta
       .filter((meta) => meta.status === 'published' && Boolean(meta.publishedAt))
-      .map(async (meta) => ({ meta, exists: await markdownExists(meta.id), contentUrl: getPublicPostUrl(meta.id) })),
+      .map(async (meta) => ({ meta, exists: await markdownExists(meta.id), contentUrl: await resolvePublicPostUrl(meta.id) })),
   )
 
   const validMeta = publishedWithExistence.filter((item) => item.exists && Boolean(item.contentUrl)).map((item) => item.meta)
@@ -119,6 +124,9 @@ export async function rebuildIndex(): Promise<void> {
   const urlEncoding = existingIndex?.urlEncoding
   const nextIndex = rebuildIndexFromPublishedMeta(validMeta, (id) => contentUrlMap.get(id) ?? null, title, tagline, urlPrefix, urlEncoding)
   await storeIndexAndFeed(nextIndex)
+
+  const publicIndexUrl = await resolvePublicIndexUrl()
+  if (publicIndexUrl) await storeGardenSetting('publicIndexUrl', publicIndexUrl)
 }
 
 export async function saveSiteSettings(title: string, tagline: string, urlPrefix: string, urlEncoding: 'e1' | 'e2'): Promise<void> {

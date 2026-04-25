@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { rebuildIndex, saveSiteSettings } from '../lib/gardenService'
-import { getGardenSettingsUrl, getPublicFeedUrl, getPublicIndexUrl, pullGardenSetting, pullIndex } from '../lib/remotestorage'
+import { getGardenSettingsUrl, loadPublicIndexUrl, resolvePublicFeedUrl, pullGardenSetting, pullIndex } from '../lib/remotestorage'
+import { encodeIndexToken } from '../lib/indexToken'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import { Input } from './ui/input'
@@ -18,8 +19,8 @@ export function SettingsView({ onSave }: Props = {}) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  const publicIndexUrl = getPublicIndexUrl()
-  const publicFeedUrl = getPublicFeedUrl()
+  const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null)
+  const [publicFeedUrl, setPublicFeedUrl] = useState<string | null>(null)
   const gardenSettingsUrl = getGardenSettingsUrl()
 
   useEffect(() => {
@@ -27,11 +28,15 @@ export function SettingsView({ onSave }: Props = {}) {
       pullGardenSetting('title'),
       pullGardenSetting('tagline'),
       pullIndex(),
-    ]).then(([t, tl, index]) => {
+      loadPublicIndexUrl(),
+      resolvePublicFeedUrl(),
+    ]).then(([t, tl, index, indexUrl, feedUrl]) => {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
       if (index?.urlEncoding) setUrlEncoding(index.urlEncoding)
+      setPublicIndexUrl(indexUrl ?? null)
+      setPublicFeedUrl(feedUrl ?? null)
     })
   }, [])
 
@@ -100,6 +105,26 @@ export function SettingsView({ onSave }: Props = {}) {
         </div>
         {message ? <p className="text-sm text-green-700">{message}</p> : null}
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        {publicIndexUrl ? (() => {
+          const token = encodeIndexToken(publicIndexUrl, urlEncoding)
+          const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
+          return (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-1 text-xs font-medium text-slate-500">Your public site</p>
+              <a
+                className="break-all text-sm font-medium text-slate-900 underline underline-offset-4"
+                href={siteUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {siteUrl}
+              </a>
+            </div>
+          )
+        })() : null}
+        <div className="border-t border-slate-200 pt-4 text-xs text-slate-400">
+          Powered by <a className="underline underline-offset-4 hover:text-slate-600" href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer">Loam</a>
+        </div>
         {publicIndexUrl || publicFeedUrl || gardenSettingsUrl ? (
           <div className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-sm">
             {publicIndexUrl ? (
