@@ -183,7 +183,7 @@ export function App() {
 
     // /p/{slug} — well-known masked domain post
     if (parts.length === 2 && wellKnownIndexUrl) {
-      return <PublicPostView postSlug={parts[1]} indexUrl={wellKnownIndexUrl} />;
+      return <PublicPostView postSlug={parts[1]} indexUrl={wellKnownIndexUrl} indexBasePath="/" />;
     }
     const encodedPart = parts[2];
     const postSlug = parts[3];
