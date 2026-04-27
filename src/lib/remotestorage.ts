@@ -338,7 +338,7 @@ export async function storeMediaFile(contentPath: string, mimeType: string, data
       return
     }
   }
-  await publicClient().storeFile(mimeType, contentPath, data)
+  await publicClient().storeFile(mimeType, contentPath, data instanceof Blob ? await data.arrayBuffer() : data)
 }
 
 export async function deleteMediaFile(contentPath: string): Promise<void> {

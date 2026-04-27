@@ -139,8 +139,9 @@ export function SettingsView({ onSave }: Props = {}) {
             </div>
           )
         })() : null}
-        <div className="border-t border-slate-200 pt-4 text-xs text-slate-400">
-          Powered by <a className="underline underline-offset-4 hover:text-slate-600" href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer">Loam</a>
+        <div className="border-t border-slate-200 pt-4 text-xs text-slate-400 space-y-0.5">
+          <p>Powered by <a className="underline underline-offset-4 hover:text-slate-600" href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer">Loam</a></p>
+          <p>Deployed {new Date(__BUILD_TIME__).toLocaleString()}</p>
         </div>
         {publicIndexUrl || publicFeedUrl || publicFeedAtomUrl || gardenSettingsUrl ? (
           <div className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-sm">
