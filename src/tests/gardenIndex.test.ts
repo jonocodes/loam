@@ -5,6 +5,8 @@ import {
   publishMeta,
   rebuildIndexFromPublishedMeta,
   removeIndexEntry,
+  toAtomFeed,
+  toIndexEntry,
   toJsonFeed,
   unpublishMeta,
   upsertIndexEntry,
@@ -83,6 +85,52 @@ describe('garden index helpers', () => {
     expect(feed.feed_url).toBe('https://example.com/feed.json')
     expect(feed.items[0].url).toBe('https://example.com/post-1.md')
     expect(feed.items[0].id).toBe('https://example.com/post-1.md')
+  })
+
+  it('propagates tags and mediaType into index entry', () => {
+    const meta = publishMeta({ ...baseMeta, tags: ['a', 'b'], mediaType: 'text/html' }, '2026-04-22T12:00:00Z')
+    const entry = toIndexEntry(meta, 'https://example.com/post.html')
+    expect(entry.tags).toEqual(['a', 'b'])
+    expect(entry.mediaType).toBe('text/html')
+  })
+
+  it('generates Atom feed XML with correct structure', () => {
+    const index = upsertIndexEntry(createEmptyIndex('My Blog'), {
+      slug: '2026-04-26-hello',
+      date: '2026-04-26',
+      title: 'Hello World',
+      excerpt: 'A greeting',
+      publishedAt: '2026-04-26T10:00:00Z',
+      updatedAt: '2026-04-26T11:00:00Z',
+      contentUrl: 'https://example.com/hello.md',
+    })
+    const xml = toAtomFeed(index, 'https://example.com/feed.atom')
+    expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>')
+    expect(xml).toContain('<feed xmlns="http://www.w3.org/2005/Atom">')
+    expect(xml).toContain('<title>My Blog</title>')
+    expect(xml).toContain('<link rel="self" href="https://example.com/feed.atom"')
+    expect(xml).toContain('<title>Hello World</title>')
+    expect(xml).toContain('<link href="https://example.com/hello.md"')
+    expect(xml).toContain('<summary>A greeting</summary>')
+  })
+
+  it('escapes XML special characters in Atom feed', () => {
+    const index = createEmptyIndex('A & B < C > D')
+    const xml = toAtomFeed(index)
+    expect(xml).toContain('A &amp; B &lt; C &gt; D')
+  })
+
+  it('omits self link when no feed URL is provided', () => {
+    const index = createEmptyIndex('Blog')
+    const xml = toAtomFeed(index)
+    expect(xml).not.toContain('rel="self"')
+  })
+
+  it('omits tags and mediaType from index entry when not set', () => {
+    const meta = publishMeta(baseMeta, '2026-04-22T12:00:00Z')
+    const entry = toIndexEntry(meta, 'https://example.com/post.md')
+    expect(entry.tags).toBeUndefined()
+    expect(entry.mediaType).toBeUndefined()
   })
 
   it('rebuilds index from published metadata only and checks content URL existence', () => {

@@ -18,6 +18,7 @@ interface Props {
   value: string
   onChange: (value: string) => void
   readOnly?: boolean
+  language?: 'markdown' | 'plaintext'
 }
 
 const baseTheme = EditorView.theme({
@@ -37,7 +38,7 @@ const baseTheme = EditorView.theme({
   },
 })
 
-export function MarkdownEditor({ value, onChange, readOnly = false }: Props) {
+export function MarkdownEditor({ value, onChange, readOnly = false, language = 'markdown' }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
@@ -48,18 +49,26 @@ export function MarkdownEditor({ value, onChange, readOnly = false }: Props) {
 
     const readOnlyExtension = (EditorState as { readOnly?: { of: (value: boolean) => unknown } }).readOnly?.of(readOnly)
 
+    const languageExtensions = language === 'markdown'
+      ? [
+          markdown({ extensions: [Table], codeLanguages: languages }),
+          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+          livePreviewPlugin,
+          markdownStylePlugin,
+          linkPlugin(),
+          imageField(),
+          editorTheme,
+        ]
+      : [
+          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        ]
+
     const state = EditorState.create({
       doc: value,
       extensions: [
         history(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
-        markdown({ extensions: [Table], codeLanguages: languages }),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        livePreviewPlugin,
-        markdownStylePlugin,
-        linkPlugin(),
-        imageField(),
-        editorTheme,
+        ...languageExtensions,
         baseTheme,
         ...(readOnlyExtension ? [readOnlyExtension] : []),
         EditorView.lineWrapping,
@@ -78,7 +87,7 @@ export function MarkdownEditor({ value, onChange, readOnly = false }: Props) {
       view.destroy()
       viewRef.current = null
     }
-  }, [readOnly])
+  }, [readOnly, language])
 
   useEffect(() => {
     const view = viewRef.current

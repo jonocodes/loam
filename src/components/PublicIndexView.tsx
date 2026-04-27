@@ -18,8 +18,20 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
   const [index, setIndex] = useState<GardenIndex | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
 
   const indexUrl = useMemo(() => propIndexUrl ?? getIndexUrlFromQuery() ?? getPublicIndexUrl(), [propIndexUrl])
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    index?.posts.forEach((p) => p.tags?.forEach((t) => set.add(t)))
+    return [...set].sort()
+  }, [index])
+
+  const visiblePosts = useMemo(
+    () => tagFilter ? (index?.posts.filter((p) => p.tags?.includes(tagFilter)) ?? []) : (index?.posts ?? []),
+    [index, tagFilter],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -73,14 +85,28 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-3xl px-4 py-6 md:p-6">
       <header className="mb-6 border-b border-slate-200 pb-4">
-        <h1 className="text-3xl font-semibold text-slate-900">{index.title || 'Loam'}</h1>
+        <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{index.title || 'Loam'}</h1>
         {index.tagline ? <p className="mt-2 text-slate-600">{index.tagline}</p> : null}
       </header>
 
+      {allTags.length > 0 ? (
+        <div className="mb-4 flex flex-wrap gap-1">
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              className={`rounded-full px-3 py-1 text-xs transition-colors ${tagFilter === tag ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <ul className="space-y-4">
-        {index.posts.map((post) => {
+        {visiblePosts.map((post) => {
           const onRoot = window.location.pathname === '/'
           const hasIndexParam = new URLSearchParams(window.location.search).has('index')
           const postUrl = indexBasePath
@@ -103,6 +129,13 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
                 {post.title}
               </a>
               <p className="mt-1 text-sm text-slate-600">{post.excerpt}</p>
+              {post.tags && post.tags.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {post.tags.map((tag) => (
+                    <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{tag}</span>
+                  ))}
+                </div>
+              ) : null}
               <p className="mt-2 text-xs text-slate-500">Published {post.date || new Date(post.publishedAt).toLocaleDateString()}</p>
             </li>
           )

@@ -3,6 +3,7 @@ import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import { useMemo } from 'react'
 import 'highlight.js/styles/github.css'
+import { navigate } from '../lib/navigate'
 
 marked.use(
   markedHighlight({
@@ -18,6 +19,15 @@ interface Props {
   value: string
 }
 
+function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+  const anchor = (e.target as HTMLElement).closest('a')
+  if (!anchor) return
+  const href = anchor.getAttribute('href')
+  if (!href || href.includes('://') || href.startsWith('/') || href.startsWith('#') || href.startsWith('mailto:')) return
+  e.preventDefault()
+  navigate(new URL(href, window.location.href).pathname)
+}
+
 export function MarkdownViewer({ value }: Props) {
   const html = useMemo(() => marked.parse(value) as string, [value])
 
@@ -25,6 +35,7 @@ export function MarkdownViewer({ value }: Props) {
     <div
       className="markdown-body leading-relaxed text-slate-900"
       dangerouslySetInnerHTML={{ __html: html }}
+      onClick={handleClick}
     />
   )
 }

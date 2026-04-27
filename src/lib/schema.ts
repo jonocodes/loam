@@ -47,3 +47,20 @@ export type PostStatus = z.infer<typeof PostStatusSchema>
 export type GardenPostMeta = z.infer<typeof GardenPostMetaSchema>
 export type GardenIndexEntry = z.infer<typeof GardenIndexEntrySchema>
 export type GardenIndex = z.infer<typeof GardenIndexSchema>
+
+export const MediaItemSchema = z.object({
+  filename: z.string(),
+  contentPath: z.string(),
+  resolvedUrl: z.string(),
+  uploadedAt: z.string(),
+  mimeType: z.string(),
+  size: z.number().optional(),
+})
+
+export const MediaIndexSchema = z.object({
+  version: z.literal(1),
+  items: z.array(MediaItemSchema),
+})
+
+export type MediaItem = z.infer<typeof MediaItemSchema>
+export type MediaIndex = z.infer<typeof MediaIndexSchema>

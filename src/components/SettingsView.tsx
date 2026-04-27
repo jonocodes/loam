@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { rebuildIndex, saveSiteSettings } from '../lib/gardenService'
-import { getGardenSettingsUrl, loadPublicIndexUrl, resolvePublicFeedUrl, pullGardenSetting, pullIndex } from '../lib/remotestorage'
+import { getGardenSettingsUrl, loadPublicIndexUrl, resolvePublicFeedAtomUrl, resolvePublicFeedUrl, pullGardenSetting, pullIndex } from '../lib/remotestorage'
 import { encodeIndexToken } from '../lib/indexToken'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
@@ -21,6 +21,7 @@ export function SettingsView({ onSave }: Props = {}) {
 
   const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null)
   const [publicFeedUrl, setPublicFeedUrl] = useState<string | null>(null)
+  const [publicFeedAtomUrl, setPublicFeedAtomUrl] = useState<string | null>(null)
   const gardenSettingsUrl = getGardenSettingsUrl()
 
   useEffect(() => {
@@ -30,13 +31,15 @@ export function SettingsView({ onSave }: Props = {}) {
       pullIndex().catch(() => null),
       loadPublicIndexUrl().catch(() => null),
       resolvePublicFeedUrl().catch(() => null),
-    ]).then(([t, tl, index, indexUrl, feedUrl]) => {
+      resolvePublicFeedAtomUrl().catch(() => null),
+    ]).then(([t, tl, index, indexUrl, feedUrl, atomUrl]) => {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
       if (index?.urlEncoding) setUrlEncoding(index.urlEncoding)
       setPublicIndexUrl(indexUrl ?? null)
       setPublicFeedUrl(feedUrl ?? null)
+      setPublicFeedAtomUrl(atomUrl ?? null)
     })
   }, [])
 
@@ -139,13 +142,16 @@ export function SettingsView({ onSave }: Props = {}) {
         <div className="border-t border-slate-200 pt-4 text-xs text-slate-400">
           Powered by <a className="underline underline-offset-4 hover:text-slate-600" href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer">Loam</a>
         </div>
-        {publicIndexUrl || publicFeedUrl || gardenSettingsUrl ? (
+        {publicIndexUrl || publicFeedUrl || publicFeedAtomUrl || gardenSettingsUrl ? (
           <div className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-sm">
             {publicIndexUrl ? (
               <a className="underline underline-offset-4" href={publicIndexUrl} target="_blank" rel="noreferrer">Open index.json</a>
             ) : null}
             {publicFeedUrl ? (
               <a className="underline underline-offset-4" href={publicFeedUrl} target="_blank" rel="noreferrer">Open feed.json</a>
+            ) : null}
+            {publicFeedAtomUrl ? (
+              <a className="underline underline-offset-4" href={publicFeedAtomUrl} target="_blank" rel="noreferrer">Open feed.atom</a>
             ) : null}
             {gardenSettingsUrl ? (
               <a className="underline underline-offset-4" href={gardenSettingsUrl} target="_blank" rel="noreferrer">Open garden.json</a>

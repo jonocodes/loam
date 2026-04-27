@@ -2,8 +2,8 @@ import { navigate } from "../lib/navigate";
 
 export function LandingView() {
   return (
-    <main className="mx-auto max-w-2xl p-12 font-sans text-slate-900">
-      <h1 className="text-4xl font-semibold">Loam</h1>
+    <main className="mx-auto max-w-2xl px-4 py-10 md:p-12 font-sans text-slate-900">
+      <h1 className="text-3xl font-semibold md:text-4xl">Loam</h1>
       <p className="mt-4 text-lg text-slate-600">
         Loam is a place to write and share thoughts at your own pace, with full ownership of your
         content. See an{" "}

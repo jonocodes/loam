@@ -1,5 +1,7 @@
 import RemoteStorage from 'remotestoragejs'
-import type { GardenIndex, GardenPostMeta } from './schema'
+import type { GardenIndex, GardenPostMeta, MediaIndex } from './schema'
+import { mediaTypeToExt, inferMediaType } from './mediaType'
+export { mediaTypeToExt, inferMediaType } from './mediaType'
 
 export const rs = new RemoteStorage({ logging: true })
 
@@ -39,8 +41,15 @@ function itemUrl(path: string): string | null {
 
 const POSTS_PATH = 'posts/'
 const META_PATH = 'meta/'
+
+function mediaTypeToMime(mediaType?: string): string {
+  return mediaType ?? 'text/markdown'
+}
 const INDEX_PATH = 'index.json'
 const FEED_PATH = 'feed.json'
+const FEED_ATOM_PATH = 'feed.atom'
+const MEDIA_PATH = 'media/'
+const MEDIA_INDEX_PATH = 'media-index.json'
 const SETTINGS_PATH = 'settings/garden.json'
 
 export function connectRemoteStorage(userAddress: string): void {
@@ -157,7 +166,7 @@ function getRemoteToken(): string | null {
   return (rs as unknown as { remote?: { token?: string } }).remote?.token ?? null
 }
 
-async function resolvePublicFileUrl(publicFilePath: string): Promise<string | null> {
+export async function resolvePublicFileUrl(publicFilePath: string): Promise<string | null> {
   const backend = getActiveBackend()
   if (backend === 'dropbox') {
     const token = getRemoteToken()
@@ -172,8 +181,8 @@ async function resolvePublicFileUrl(publicFilePath: string): Promise<string | nu
   return itemUrl(publicFilePath)
 }
 
-export async function resolvePublicPostUrl(slug: string): Promise<string | null> {
-  return resolvePublicFileUrl(`${POSTS_PATH}${slug}.md`)
+export async function resolvePublicPostUrl(slug: string, mediaType?: string): Promise<string | null> {
+  return resolvePublicFileUrl(`${POSTS_PATH}${slug}.${mediaTypeToExt(mediaType)}`)
 }
 
 export async function resolvePublicIndexUrl(): Promise<string | null> {
@@ -182,6 +191,10 @@ export async function resolvePublicIndexUrl(): Promise<string | null> {
 
 export async function resolvePublicFeedUrl(): Promise<string | null> {
   return resolvePublicFileUrl(FEED_PATH)
+}
+
+export async function resolvePublicFeedAtomUrl(): Promise<string | null> {
+  return resolvePublicFileUrl(FEED_ATOM_PATH)
 }
 
 export function getPublicIndexUrl(): string | null {
@@ -214,12 +227,14 @@ export function getGardenSettingsUrl(): string | null {
   return typeof url === 'string' ? url : null
 }
 
-export async function storePostMarkdown(slug: string, markdown: string): Promise<void> {
-  await publicClient().storeFile('text/markdown', `${POSTS_PATH}${slug}.md`, markdown)
+export async function storePostMarkdown(slug: string, content: string, mediaType?: string): Promise<void> {
+  const ext = mediaTypeToExt(mediaType)
+  await publicClient().storeFile(mediaTypeToMime(mediaType), `${POSTS_PATH}${slug}.${ext}`, content)
 }
 
-export async function pullPostMarkdown(slug: string): Promise<string | null> {
-  const result = await publicClient().getFile(`${POSTS_PATH}${slug}.md`)
+export async function pullPostMarkdown(slug: string, mediaType?: string): Promise<string | null> {
+  const ext = mediaTypeToExt(mediaType)
+  const result = await publicClient().getFile(`${POSTS_PATH}${slug}.${ext}`)
   if (!result?.data) return null
 
   if (typeof result.data === 'string') {
@@ -233,8 +248,9 @@ export async function pullPostMarkdown(slug: string): Promise<string | null> {
   return await (result.data as Blob).text()
 }
 
-export async function removePostMarkdown(slug: string): Promise<void> {
-  await publicClient().remove(`${POSTS_PATH}${slug}.md`)
+export async function removePostMarkdown(slug: string, mediaType?: string): Promise<void> {
+  const ext = mediaTypeToExt(mediaType)
+  await publicClient().remove(`${POSTS_PATH}${slug}.${ext}`)
 }
 
 export async function storePostMeta(meta: GardenPostMeta): Promise<void> {
@@ -266,8 +282,9 @@ export async function pullAllPostMeta(): Promise<GardenPostMeta[]> {
   return all.filter((item): item is GardenPostMeta => item !== null)
 }
 
-export async function markdownExists(slug: string): Promise<boolean> {
-  const result = await publicClient().getFile(`${POSTS_PATH}${slug}.md`)
+export async function markdownExists(slug: string, mediaType?: string): Promise<boolean> {
+  const ext = mediaTypeToExt(mediaType)
+  const result = await publicClient().getFile(`${POSTS_PATH}${slug}.${ext}`)
   return Boolean(result?.data)
 }
 
@@ -285,6 +302,10 @@ export async function storeFeed(feed: unknown): Promise<void> {
   await publicClient().storeFile('application/json', FEED_PATH, JSON.stringify(feed))
 }
 
+export async function storeFeedAtom(xml: string): Promise<void> {
+  await publicClient().storeFile('application/atom+xml', FEED_ATOM_PATH, xml)
+}
+
 export async function storeGardenSetting(key: string, value: string): Promise<void> {
   const result = await privateClient().getFile(SETTINGS_PATH)
   const current = result?.data ? (JSON.parse(result.data as string) as Record<string, string>) : {}
@@ -299,4 +320,76 @@ export async function pullGardenSetting(key: string): Promise<string | null> {
 
   const settings = JSON.parse(result.data as string) as Record<string, string>
   return settings[key] ?? null
+}
+
+export async function storeMediaFile(contentPath: string, mimeType: string, data: ArrayBuffer | Blob): Promise<void> {
+  // RS.js 2.0-beta has a bug where a 404 pre-sync GET causes binary files to be delayed
+  // indefinitely rather than PUTted. Bypass the sync pipeline for native RS backend.
+  if (getActiveBackend() === 'remotestorage') {
+    const url = itemUrl(contentPath)
+    const token = getRemoteToken()
+    if (url && token) {
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType },
+        body: data,
+      })
+      if (!res.ok) throw new Error(`Media upload failed: ${res.status}`)
+      return
+    }
+  }
+  await publicClient().storeFile(mimeType, contentPath, data)
+}
+
+export async function deleteMediaFile(contentPath: string): Promise<void> {
+  if (getActiveBackend() === 'remotestorage') {
+    const url = itemUrl(contentPath)
+    const token = getRemoteToken()
+    if (url && token) {
+      await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      return
+    }
+  }
+  await publicClient().remove(contentPath)
+}
+
+export async function resolvePublicMediaUrl(contentPath: string): Promise<string | null> {
+  return resolvePublicFileUrl(contentPath)
+}
+
+export async function pullMediaIndex(): Promise<MediaIndex | null> {
+  const result = await privateClient().getFile(MEDIA_INDEX_PATH)
+  if (!result?.data) return null
+  return JSON.parse(result.data as string) as MediaIndex
+}
+
+export async function storeMediaIndex(index: MediaIndex): Promise<void> {
+  await privateClient().storeFile('application/json', MEDIA_INDEX_PATH, JSON.stringify(index))
+}
+
+export async function listMediaPaths(): Promise<string[]> {
+  const listing = await publicClient().getListing(MEDIA_PATH)
+  if (!listing) return []
+  return Object.keys(listing).map((k) => MEDIA_PATH + k)
+}
+
+export async function getMediaFileAsObjectUrl(contentPath: string): Promise<string | null> {
+  // For native RS, fetch directly — file was PUT outside the RS.js cache
+  if (getActiveBackend() === 'remotestorage') {
+    const url = itemUrl(contentPath)
+    if (!url) return null
+    try {
+      const res = await fetch(url)
+      if (!res.ok) return null
+      return URL.createObjectURL(await res.blob())
+    } catch {
+      return null
+    }
+  }
+  const result = await publicClient().getFile(contentPath) as { data?: unknown; mimeType?: string } | null
+  if (!result?.data) return null
+  const mimeType = result.mimeType ?? 'application/octet-stream'
+  if (result.data instanceof Blob) return URL.createObjectURL(result.data)
+  if (result.data instanceof ArrayBuffer) return URL.createObjectURL(new Blob([result.data], { type: mimeType }))
+  return null
 }

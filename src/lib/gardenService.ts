@@ -4,29 +4,40 @@ import {
   publishMeta,
   rebuildIndexFromPublishedMeta,
   removeIndexEntry,
+  toAtomFeed,
   toIndexEntry,
   toJsonFeed,
   unpublishMeta,
   upsertIndexEntry,
+  upsertMediaItem,
 } from './gardenIndex'
 import { buildDatedSlug, ensureUniqueSlug } from './slugs'
 import {
+  deleteMediaFile,
   markdownExists,
   pullAllPostMeta,
   pullGardenSetting,
   pullIndex,
+  pullMediaIndex,
+  pullPostMarkdown,
   pullPostMeta,
   removePostMarkdown,
   removePostMeta,
+  resolvePublicFeedAtomUrl,
   resolvePublicFeedUrl,
   resolvePublicIndexUrl,
+  resolvePublicMediaUrl,
   resolvePublicPostUrl,
   storeGardenSetting,
   storeFeed,
+  storeFeedAtom,
   storeIndex,
+  storeMediaFile,
+  storeMediaIndex,
+  storePostMarkdown,
   storePostMeta,
 } from './remotestorage'
-import type { GardenIndex } from './schema'
+import type { GardenIndex, MediaIndex, MediaItem } from './schema'
 
 
 async function loadIndexOrCreate(): Promise<GardenIndex> {
@@ -41,8 +52,11 @@ export async function generateSlug(title: string, date = new Date()): Promise<st
 
 async function storeIndexAndFeed(nextIndex: GardenIndex): Promise<void> {
   await storeIndex(nextIndex)
-  const feedUrl = await resolvePublicFeedUrl()
-  await storeFeed(toJsonFeed(nextIndex, feedUrl ?? undefined))
+  const [feedUrl, atomFeedUrl] = await Promise.all([resolvePublicFeedUrl(), resolvePublicFeedAtomUrl()])
+  await Promise.all([
+    storeFeed(toJsonFeed(nextIndex, feedUrl ?? undefined)),
+    storeFeedAtom(toAtomFeed(nextIndex, atomFeedUrl ?? undefined)),
+  ])
 }
 
 export async function publishPost(slug: string): Promise<void> {
@@ -51,16 +65,16 @@ export async function publishPost(slug: string): Promise<void> {
     throw new Error(`Metadata not found for post ${slug}`)
   }
 
-  const hasMarkdown = await markdownExists(slug)
+  const hasMarkdown = await markdownExists(slug, existingMeta.mediaType)
   if (!hasMarkdown) {
-    throw new Error(`Markdown not found for post ${slug}`)
+    throw new Error(`Content not found for post ${slug}`)
   }
 
   const nextMeta = publishMeta(existingMeta)
   await storePostMeta(nextMeta)
 
   const index = await loadIndexOrCreate()
-  const contentUrl = await resolvePublicPostUrl(slug)
+  const contentUrl = await resolvePublicPostUrl(slug, existingMeta.mediaType)
   if (!contentUrl) {
     throw new Error('Unable to generate public content URL for this backend')
   }
@@ -93,7 +107,7 @@ export async function deletePost(slug: string): Promise<void> {
     await storePostMeta(deletedMeta)
   }
 
-  await removePostMarkdown(slug)
+  await removePostMarkdown(slug, existingMeta?.mediaType)
   await removePostMeta(slug)
 
   const index = await loadIndexOrCreate()
@@ -102,6 +116,32 @@ export async function deletePost(slug: string): Promise<void> {
 }
 
 export async function rebuildIndex(): Promise<void> {
+  const mediaIndex = await pullMediaIndex()
+  if (mediaIndex && mediaIndex.items.length > 0) {
+    const reResolved = await Promise.all(
+      mediaIndex.items.map(async (item) => ({ item, newUrl: await resolvePublicMediaUrl(item.contentPath) }))
+    )
+    const changed = reResolved.filter(({ item, newUrl }) => newUrl !== null && newUrl !== item.resolvedUrl)
+    if (changed.length > 0) {
+      const replacements = new Map(changed.map(({ item, newUrl }) => [item.resolvedUrl, newUrl!]))
+      const allMetaForMedia = await pullAllPostMeta()
+      await Promise.all(
+        allMetaForMedia.map(async (meta) => {
+          const content = await pullPostMarkdown(meta.slug, meta.mediaType)
+          if (!content) return
+          let rewritten = content
+          for (const [oldUrl, newUrl] of replacements) rewritten = rewritten.split(oldUrl).join(newUrl)
+          if (rewritten !== content) await storePostMarkdown(meta.slug, rewritten, meta.mediaType)
+        })
+      )
+      const updatedItems = mediaIndex.items.map((item) => {
+        const newUrl = replacements.get(item.resolvedUrl)
+        return newUrl ? { ...item, resolvedUrl: newUrl } : item
+      })
+      await storeMediaIndex({ ...mediaIndex, items: updatedItems })
+    }
+  }
+
   const [settingsTitle, settingsTagline, allMeta] = await Promise.all([
     pullGardenSetting('title'),
     pullGardenSetting('tagline'),
@@ -113,7 +153,7 @@ export async function rebuildIndex(): Promise<void> {
   const publishedWithExistence = await Promise.all(
     allMeta
       .filter((meta) => meta.status === 'published' && Boolean(meta.publishedAt))
-      .map(async (meta) => ({ meta, exists: await markdownExists(meta.slug), contentUrl: await resolvePublicPostUrl(meta.slug) })),
+      .map(async (meta) => ({ meta, exists: await markdownExists(meta.slug, meta.mediaType), contentUrl: await resolvePublicPostUrl(meta.slug, meta.mediaType) })),
   )
 
   const validMeta = publishedWithExistence.filter((item) => item.exists && Boolean(item.contentUrl)).map((item) => item.meta)
@@ -127,6 +167,47 @@ export async function rebuildIndex(): Promise<void> {
 
   const publicIndexUrl = await resolvePublicIndexUrl()
   if (publicIndexUrl) await storeGardenSetting('publicIndexUrl', publicIndexUrl)
+}
+
+function sanitizeFilename(name: string): string {
+  const dotIdx = name.lastIndexOf('.')
+  const base = dotIdx > 0 ? name.slice(0, dotIdx) : name
+  const ext = dotIdx > 0 ? name.slice(dotIdx) : ''
+  return base.replace(/[^a-zA-Z0-9._-]/g, '_') + ext
+}
+
+export async function uploadMedia(file: File): Promise<MediaItem> {
+  const contentPath = `media/${sanitizeFilename(file.name)}`
+  await storeMediaFile(contentPath, file.type, file)
+
+  const resolvedUrl = await resolvePublicMediaUrl(contentPath)
+  if (!resolvedUrl) throw new Error('Could not resolve public URL for uploaded media')
+
+  const item: MediaItem = {
+    filename: file.name,
+    contentPath,
+    resolvedUrl,
+    uploadedAt: new Date().toISOString(),
+    mimeType: file.type,
+    size: file.size,
+  }
+
+  const existing = await pullMediaIndex()
+  const base: MediaIndex = existing ?? { version: 1, items: [] }
+  await storeMediaIndex(upsertMediaItem(base, item))
+
+  return item
+}
+
+export async function loadMediaIndex(): Promise<MediaIndex> {
+  return (await pullMediaIndex()) ?? { version: 1 as const, items: [] }
+}
+
+export async function deleteMedia(contentPath: string): Promise<void> {
+  await deleteMediaFile(contentPath)
+  const existing = await pullMediaIndex()
+  if (!existing) return
+  await storeMediaIndex({ ...existing, items: existing.items.filter((i) => i.contentPath !== contentPath) })
 }
 
 export async function saveSiteSettings(title: string, tagline: string, urlPrefix: string, urlEncoding: 'e1' | 'e2'): Promise<void> {

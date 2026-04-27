@@ -1,4 +1,4 @@
-import type { GardenIndex, GardenIndexEntry, GardenPostMeta } from './schema'
+import type { GardenIndex, GardenIndexEntry, GardenPostMeta, MediaIndex, MediaItem } from './schema'
 
 export function createEmptyIndex(title = 'Loam', tagline?: string, now = new Date().toISOString()): GardenIndex {
   return {
@@ -123,6 +123,34 @@ interface JsonFeedV1 {
   title: string
   feed_url?: string
   items: JsonFeedItem[]
+}
+
+export function upsertMediaItem(index: MediaIndex, item: MediaItem): MediaIndex {
+  const filtered = index.items.filter((i) => i.contentPath !== item.contentPath)
+  return { ...index, items: [...filtered, item] }
+}
+
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+export function toAtomFeed(index: GardenIndex, feedUrl?: string): string {
+  const entries = index.posts.map((post) => `  <entry>
+    <title>${escapeXml(post.title)}</title>
+    <link href="${escapeXml(post.contentUrl)}" />
+    <id>${escapeXml(post.contentUrl)}</id>
+    <published>${post.publishedAt}</published>
+    <updated>${post.updatedAt}</updated>
+    <summary>${escapeXml(post.excerpt)}</summary>
+  </entry>`).join('\n')
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>${escapeXml(index.title)}</title>
+  <updated>${index.updatedAt}</updated>
+  <id>${feedUrl ?? ''}</id>${feedUrl ? `\n  <link rel="self" href="${escapeXml(feedUrl)}" />` : ''}
+${entries}
+</feed>`
 }
 
 export function toJsonFeed(index: GardenIndex, feedUrl?: string): JsonFeedV1 {

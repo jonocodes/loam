@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MarkdownViewer } from './MarkdownViewer'
 import { navigate } from '../lib/navigate'
 import { encodeIndexToken } from '../lib/indexToken'
-import { getPublicIndexUrl } from '../lib/remotestorage'
+import { getPublicIndexUrl, inferMediaType } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 import type { UrlEncoding } from '../lib/indexToken'
 
@@ -89,7 +89,7 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6">
+    <main className="mx-auto max-w-3xl px-4 py-6 md:p-6">
       <header className="mb-4 border-b border-slate-200 pb-4">
         <div className="mb-2">
           <a
@@ -116,10 +116,28 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
             ← Back to home
           </a>
         </div>
-        <h1 className="text-3xl font-semibold text-slate-900">{post?.title ?? postSlug}</h1>
+        <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{post?.title ?? postSlug}</h1>
         {post?.updatedAt ? <p className="mt-2 text-xs text-slate-500">Updated {new Date(post.updatedAt).toLocaleString()}</p> : null}
+        {post?.tags && post.tags.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {post.tags.map((tag) => (
+              <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{tag}</span>
+            ))}
+          </div>
+        ) : null}
       </header>
-      {loading ? <p className="text-slate-500">Loading...</p> : <MarkdownViewer value={body} />}
+      {loading ? (
+        <p className="text-slate-500">Loading...</p>
+      ) : (() => {
+        const effectiveMediaType = inferMediaType(post?.mediaType, post?.contentUrl)
+        if (effectiveMediaType === 'text/html') {
+          return <div className="markdown-body" dangerouslySetInnerHTML={{ __html: body }} />
+        }
+        if (effectiveMediaType === 'text/plain') {
+          return <pre className="overflow-x-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-900">{body}</pre>
+        }
+        return <MarkdownViewer value={body} />
+      })()}
 
       <footer className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
         Published with{' '}

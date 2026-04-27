@@ -10,6 +10,7 @@ import { MarkdownEditor } from "./components/MarkdownEditor";
 import { MarkdownRenderView } from "./components/MarkdownRenderView";
 import { deletePost, generateSlug, publishPost, unpublishPost } from "./lib/gardenService";
 import { SettingsView } from "./components/SettingsView";
+import { MediaPanel } from "./components/MediaPanel";
 import {
   clearCloudSharingCache,
   fetchWellKnownIndexUrl,
@@ -49,6 +50,13 @@ export function App() {
   const [body, setBody] = useState("");
   const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [status, setStatus] = useState<GardenPostMeta["status"]>("draft");
+  const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown');
+  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown');
+  const [tagsInput, setTagsInput] = useState<string>('');
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [blobUrlToResolved, setBlobUrlToResolved] = useState<Map<string, string>>(new Map());
+  const [mobilePanel, setMobilePanel] = useState<'list' | 'editor'>('list');
+  const [sidebarTab, setSidebarTab] = useState<'posts' | 'media'>('posts');
 
   const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null);
   // undefined = still checking, null = not found, string = found
@@ -92,27 +100,27 @@ export function App() {
     return () => window.removeEventListener("popstate", popStateHandler);
   }, []);
 
-  useEffect(() => {
-    if (!selectedSlug) return;
-
-    const selected = items.find((item) => item.slug === selectedSlug);
-    if (!selected) return;
-
-    setSlug(selected.slug);
-    setOriginalSlug(selected.slug);
-    setTitle(selected.title);
-    setExcerpt(selected.excerpt);
-    setStatus(selected.status);
-    setPostDate(selected.publishedAt ? selected.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  function loadPost(meta: GardenPostMeta): void {
+    setSelectedSlug(meta.slug);
+    setSlug(meta.slug);
+    setOriginalSlug(meta.slug);
+    setTitle(meta.title);
+    setExcerpt(meta.excerpt);
+    setStatus(meta.status);
+    setPostDate(meta.publishedAt ? meta.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    const mt = (meta.mediaType ?? 'text/markdown') as 'text/markdown' | 'text/html' | 'text/plain';
+    setMediaType(mt);
+    setOriginalMediaType(mt);
+    setTagsInput(meta.tags?.join(', ') ?? '');
     setMessage("");
     setError("");
 
-    void pullPostMarkdown(selected.slug)
+    void pullPostMarkdown(meta.slug, meta.mediaType)
       .then((content) => setBody(content ?? ""))
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : String(err));
       });
-  }, [selectedSlug, items]);
+  }
 
   function clearEditor(): void {
     setSelectedSlug(null);
@@ -123,6 +131,9 @@ export function App() {
     setBody("");
     setPostDate(new Date().toISOString().slice(0, 10));
     setStatus("draft");
+    setMediaType('text/markdown');
+    setOriginalMediaType('text/markdown');
+    setTagsInput('');
     setError("");
     setMessage("");
   }
@@ -131,6 +142,17 @@ export function App() {
     () => items.find((item) => item.slug === (originalSlug ?? slug)) ?? null,
     [items, originalSlug, slug]
   );
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    for (const item of items) item.tags?.forEach((t) => set.add(t))
+    return [...set].sort()
+  }, [items])
+
+  const visibleItems = useMemo(
+    () => tagFilter ? items.filter((item) => item.tags?.includes(tagFilter)) : items,
+    [items, tagFilter],
+  )
 
   const publicIndexToken = publicIndexUrl ? encodeIndexToken(publicIndexUrl) : null;
 
@@ -182,8 +204,12 @@ export function App() {
     const parts = pathname.split("/").filter(Boolean);
 
     // /p/{slug} — well-known masked domain post
-    if (parts.length === 2 && wellKnownIndexUrl) {
-      return <PublicPostView postSlug={parts[1]} indexUrl={wellKnownIndexUrl} indexBasePath="/" />;
+    if (parts.length === 2) {
+      if (wellKnownIndexUrl === undefined) return null;
+      if (wellKnownIndexUrl) {
+        return <PublicPostView postSlug={parts[1]} indexUrl={wellKnownIndexUrl} indexBasePath="/" />;
+      }
+      return <LandingView />;
     }
     const encodedPart = parts[2];
     const postSlug = parts[3];
@@ -223,16 +249,24 @@ export function App() {
 
     try {
       const now = new Date().toISOString();
+      const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
       const parsed = parseMarkdownToPost(body);
-      const resolvedTitle = title.trim() || parsed.title || "Untitled";
+      const resolvedTitle = mediaType === 'text/markdown'
+        ? (title.trim() || parsed.title || "Untitled")
+        : (title.trim() || "Untitled");
       const resolvedExcerpt = excerpt.trim() || parsed.excerpt;
-      const parsedBody = parsed.body;
+      const rawBody = mediaType === 'text/markdown' ? parsed.body : body.trim();
+      let parsedBody = rawBody;
+      for (const [blobUrl, resolvedUrl] of blobUrlToResolved) {
+        parsedBody = parsedBody.split(blobUrl).join(resolvedUrl);
+      }
 
       const resolvedSlug = slug.trim()
         ? slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
         : await generateSlug(resolvedTitle || 'untitled');
 
       const slugChanged = originalSlug !== null && resolvedSlug !== originalSlug;
+      const mediaTypeChanged = originalSlug !== null && mediaType !== originalMediaType;
 
       const createdAt = selectedMeta?.createdAt ?? now;
       const nextStatus = selectedMeta?.status ?? "draft";
@@ -244,19 +278,21 @@ export function App() {
         slug: resolvedSlug,
         title: resolvedTitle,
         excerpt: resolvedExcerpt,
+        ...(tags.length > 0 ? { tags } : {}),
         status: nextStatus,
         createdAt,
         updatedAt: now,
         publishedAt: nextPublishedAt,
         deletedAt: nextDeletedAt,
+        ...(mediaType !== 'text/markdown' ? { mediaType } : {}),
       };
 
-      if (slugChanged && originalSlug) {
-        // Save at new slug, delete old
+      const needsRename = (slugChanged || mediaTypeChanged) && originalSlug;
+      if (needsRename) {
         await storePostMeta(meta);
-        await storePostMarkdown(resolvedSlug, parsedBody);
-        await removePostMeta(originalSlug);
-        await removePostMarkdown(originalSlug);
+        await storePostMarkdown(resolvedSlug, parsedBody, mediaType);
+        await removePostMarkdown(originalSlug, originalMediaType);
+        if (slugChanged) await removePostMeta(originalSlug);
         if (nextStatus === 'published') {
           setMessage('Saved. Post was published — republish to update the public site.');
         } else {
@@ -264,7 +300,7 @@ export function App() {
         }
       } else {
         await storePostMeta(meta);
-        await storePostMarkdown(resolvedSlug, parsedBody);
+        await storePostMarkdown(resolvedSlug, parsedBody, mediaType);
         setMessage('Saved');
       }
 
@@ -274,6 +310,8 @@ export function App() {
       setExcerpt(meta.excerpt);
       setBody(parsedBody);
       setStatus(meta.status);
+      setOriginalMediaType(mediaType);
+      setBlobUrlToResolved(new Map());
       await refreshList();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -309,6 +347,7 @@ export function App() {
         await deletePost(activeSlug);
         setMessage("Post deleted");
         clearEditor();
+        setMobilePanel('list');
       }
 
       await refreshList();
@@ -320,13 +359,13 @@ export function App() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-6 font-sans text-slate-900">
+    <main className="mx-auto max-w-6xl px-4 py-4 md:p-6 font-sans text-slate-900">
       <ConnectWidget />
 
       <header className="mb-6 space-y-2">
-        <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-semibold">Loam</h1>
-          <nav className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 className="text-2xl font-semibold md:text-3xl">Loam</h1>
+          <nav className="flex flex-wrap gap-2">
             <Button
               variant={view === "posts" ? "default" : "outline"}
               size="sm"
@@ -344,14 +383,14 @@ export function App() {
             {publicHomePageUrl ? (
               <Button variant="outline" size="sm" asChild>
                 <a href={publicHomePageUrl} target="_blank" rel="noreferrer">
-                  Open public home page
+                  Public site
                 </a>
               </Button>
             ) : null}
           </nav>
         </div>
-        <p>
-          Connection status: <strong>{connected ? "Connected" : "Not connected"}</strong>.{" "}
+        <p className="text-sm text-slate-600">
+          <strong className="text-slate-900">{connected ? "Connected" : "Not connected"}</strong>.{" "}
           {connected
             ? "Your posts sync to remote storage."
             : "Use the sync widget in the page corner if you want your site to be public."}
@@ -363,38 +402,87 @@ export function App() {
       <section
         className={`grid grid-cols-1 gap-4 md:grid-cols-[320px_1fr]${view === "settings" ? " hidden" : ""}`}
       >
-        <Card>
+        <Card className={mobilePanel === 'editor' ? 'hidden md:block' : ''}>
           <CardHeader>
-            <strong>Posts</strong>
-            <Button variant="outline" size="sm" onClick={clearEditor}>
-              New
-            </Button>
+            <div className="flex gap-3">
+              <button
+                className={`text-sm font-semibold ${sidebarTab === 'posts' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'}`}
+                onClick={() => setSidebarTab('posts')}
+              >
+                Posts
+              </button>
+              <button
+                className={`text-sm font-semibold ${sidebarTab === 'media' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'}`}
+                onClick={() => setSidebarTab('media')}
+              >
+                Media
+              </button>
+            </div>
+            {sidebarTab === 'posts' ? (
+              <Button variant="outline" size="sm" onClick={() => { clearEditor(); setMobilePanel('editor'); }}>
+                New
+              </Button>
+            ) : null}
           </CardHeader>
           <CardContent>
-            {items.length === 0 ? <p className="text-sm text-slate-500">No posts yet.</p> : null}
-            <ul className="space-y-2">
-              {items.map((item) => (
-                <li key={item.slug}>
-                  <Button
-                    variant="secondary"
-                    className="h-auto w-full justify-start p-3 text-left"
-                    onClick={() => setSelectedSlug(item.slug)}
-                  >
-                    <div>
-                      <div className="font-semibold">{item.title}</div>
-                      <div className="text-xs text-slate-500">
-                        {item.status} · {item.slug}
-                      </div>
-                    </div>
-                  </Button>
-                </li>
-              ))}
-            </ul>
+            {sidebarTab === 'media' ? (
+              <MediaPanel
+                onInsert={(fragment, blobUrl, resolvedUrl) => {
+                  setBody((prev) => prev ? `${prev}\n${fragment}` : fragment);
+                  if (blobUrl && resolvedUrl) {
+                    setBlobUrlToResolved((prev) => new Map(prev).set(blobUrl, resolvedUrl));
+                  }
+                  setMobilePanel('editor');
+                }}
+              />
+            ) : (
+              <>
+                {allTags.length > 0 ? (
+                  <div className="mb-3 flex flex-wrap gap-1">
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                        className={`rounded-full px-2 py-0.5 text-xs transition-colors ${tagFilter === tag ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {visibleItems.length === 0 ? <p className="text-sm text-slate-500">{items.length === 0 ? 'No posts yet.' : 'No posts with this tag.'}</p> : null}
+                <ul className="space-y-2">
+                  {visibleItems.map((item) => (
+                    <li key={item.slug}>
+                      <Button
+                        variant="secondary"
+                        className="h-auto w-full justify-start p-3 text-left"
+                        onClick={() => { loadPost(item); setMobilePanel('editor'); }}
+                      >
+                        <div>
+                          <div className="font-semibold">{item.title}</div>
+                          <div className="text-xs text-slate-500">
+                            {item.status} · {item.slug}
+                          </div>
+                        </div>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={mobilePanel === 'list' ? 'hidden md:block' : ''}>
           <CardContent className="space-y-4 pt-4">
+            <button
+              type="button"
+              className="flex items-center gap-1 text-sm text-slate-500 md:hidden"
+              onClick={() => setMobilePanel('list')}
+            >
+              ← Posts
+            </button>
             <label className="grid gap-1 text-sm">
               <span className="font-medium">Title</span>
               <Input value={title} onChange={(event) => setTitle(event.target.value)} />
@@ -416,13 +504,40 @@ export function App() {
             </label>
 
             <label className="grid gap-1 text-sm">
+              <span className="font-medium">Tags</span>
+              <Input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder="tag1, tag2, tag3"
+              />
+              <span className="text-xs text-slate-500">Comma-separated.</span>
+            </label>
+
+            <label className="grid gap-1 text-sm">
               <span className="font-medium">Date</span>
               <Input type="date" value={postDate} onChange={(event) => setPostDate(event.target.value)} />
             </label>
 
+            <fieldset className="grid gap-1 text-sm">
+              <span className="font-medium">Format</span>
+              <div className="flex gap-4">
+                {([
+                  ['text/markdown', 'Markdown'],
+                  ['text/html', 'HTML'],
+                  ['text/plain', 'Plain text'],
+                ] as const).map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-1.5">
+                    <input type="radio" name="mediaType" value={value} checked={mediaType === value} onChange={() => setMediaType(value)} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+              <span className="text-xs text-slate-500">Controls how the body is rendered when published. Does not convert existing content.</span>
+            </fieldset>
+
             <label className="grid gap-1 text-sm">
-              <span className="font-medium">Markdown Body</span>
-              <MarkdownEditor value={body} onChange={setBody} />
+              <span className="font-medium">Body</span>
+              <MarkdownEditor value={body} onChange={setBody} language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'} />
             </label>
 
             <div className="flex flex-wrap gap-2">

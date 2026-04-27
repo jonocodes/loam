@@ -18,6 +18,41 @@ For more space and control you can host your own remoteStorage server, like [arm
 [See Jono's personal digital garden as an example](https://garden.dgt.is).
 
 
+## Features
+
+**Writing**
+- Markdown editor with live preview and syntax highlighting (CodeMirror)
+- HTML and plain text post formats — toggled per post, file extension updates automatically
+- Auto title and excerpt parsing from markdown headings
+- Editable slug field, auto-generated from title on first save; renaming renames the underlying files
+- Draft / published / unpublished post states
+- Tags per post (stored in index, no UI yet)
+
+**Publishing**
+- One-click publish, unpublish, and delete
+- Public `index.json` listing with [JSON Schema](schema/index.json)
+- JSON Feed 1.1 (`feed.json`) generated alongside the index
+- Rebuild index command — re-scans all metadata and rewrites from scratch
+
+**Storage**
+- [remoteStorage](https://remotestorage.io/) (tested on 5apps.com)
+- Dropbox (CORS-friendly shared links via the sharing API)
+- Google Drive (folder-level public permissions, no per-file calls)
+- Works offline — edits are cached locally and sync when reconnected
+- Installable as a PWA
+
+**Reading**
+- Public garden home and post pages — no login required for readers
+- Cross-linking between posts with SPA navigation (relative slug links)
+- Multiple content type rendering: markdown, HTML, plain text (inferred from `mediaType` field or file extension)
+- Render any markdown file by URL at `/render/{encoded-url}`
+
+**Sharing**
+- Encoded index token in public URLs — storage URL is not exposed in the address bar
+- Domain masking via `/.well-known/loam.json` — serve your garden from a custom domain with clean URLs
+- URL-param mode (`?index=<url>`) for embedding in existing sites
+
+
 ## Status
 
 - remoteStorage: working, tested on 5apps.com
@@ -62,9 +97,13 @@ handle /.well-known/loam.json {
   respond `{"indexUrl":"https://storage.5apps.com/youruser/public/loam/index.json"}` 200
 }
 
+# same server
 reverse_proxy localhost:82 {
   header_up Host loam.dgt.is
 }
+
+# different server — Caddy verifies the upstream cert automatically
+# reverse_proxy https://loam.dgt.is
 ```
 
 With this in place:
@@ -72,18 +111,6 @@ With this in place:
 - `garden.example.com/p/{slug}` → individual post
 - The storage URL never appears in the browser address bar
 
-
-## Editor features
-
-- remoteStorage/Dropbox/Google Drive connect via widget
-- Post list with draft/published/unpublished status
-- Markdown editor with live styling (CodeMirror)
-- Auto title/excerpt parsing from markdown
-- Editable slug field (auto-generated from title on first save)
-- Actions: Save, Publish, Unpublish, Delete
-- Settings page: site title, tagline, URL prefix, rebuild index
-- JSON Feed (`feed.json`) generated alongside `index.json`
-- Works offline — drafts are stored locally and sync when connected
 
 
 ## Settings
@@ -110,7 +137,7 @@ Settings are stored in `settings/garden.json` (private) and also written into th
 /public/loam/                     ← public remoteStorage scope
   index.json                      ← published post listing
   feed.json                       ← JSON Feed 1.1
-  posts/<slug>.md                 ← post markdown
+  posts/<slug>.md                 ← post content (.md / .html / .txt)
 ```
 
 
