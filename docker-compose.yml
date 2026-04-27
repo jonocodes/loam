@@ -4,3 +4,15 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+
+configs:
+  caddyfile:
+    content: |
+      :80 {
+        root * /srv
+        file_server
+        try_files {path} /index.html
+      }
