@@ -1,7 +1,9 @@
 import RemoteStorage from 'remotestoragejs'
+import { mediaTypeToExt } from './mediaType'
 import type { GardenIndex, GardenPostMeta, MediaIndex } from './schema'
-import { mediaTypeToExt, inferMediaType } from './mediaType'
-export { mediaTypeToExt, inferMediaType } from './mediaType'
+import { GardenIndexSchema, GardenPostMetaSchema, MediaIndexSchema } from './schema'
+
+export { inferMediaType, mediaTypeToExt } from './mediaType'
 
 export const rs = new RemoteStorage({ logging: true })
 
@@ -91,13 +93,15 @@ async function createDropboxSharedLink(dropboxPath: string, token: string): Prom
   })
 
   if (res.status === 409) {
-    const body = await res.json() as { error?: { '.tag': string; shared_link_already_exists?: { metadata: { url: string } } } }
+    const body = (await res.json()) as {
+      error?: { '.tag': string; shared_link_already_exists?: { metadata: { url: string } } }
+    }
     const existing = body.error?.shared_link_already_exists?.metadata.url
     if (existing) return dropboxToDirectUrl(existing)
   }
 
   if (!res.ok) throw new Error(`Dropbox sharing API error: ${res.status}`)
-  const data = await res.json() as { url: string }
+  const data = (await res.json()) as { url: string }
   return dropboxToDirectUrl(data.url)
 }
 
@@ -111,11 +115,16 @@ async function googleDriveListFiles(query: string, token: string): Promise<{ id:
     { headers: { Authorization: `Bearer ${token}` } },
   )
   if (!res.ok) return []
-  const data = await res.json() as { files?: { id: string }[] }
+  const data = (await res.json()) as { files?: { id: string }[] }
   return data.files ?? []
 }
 
-async function googleDriveFindChild(name: string, parentId: string, isFolder: boolean, token: string): Promise<string | null> {
+async function googleDriveFindChild(
+  name: string,
+  parentId: string,
+  isFolder: boolean,
+  token: string,
+): Promise<string | null> {
   const mimeFilter = isFolder ? " and mimeType='application/vnd.google-apps.folder'" : ''
   const query = `name='${name}' and '${parentId}' in parents and trashed=false${mimeFilter}`
   const files = await googleDriveListFiles(query, token)
@@ -206,7 +215,6 @@ export async function loadPublicIndexUrl(): Promise<string | null> {
   return pullGardenSetting('publicIndexUrl')
 }
 
-
 export function getPublicScopePath(): string {
   return `/public/${PUBLIC_DIR}/`
 }
@@ -215,7 +223,7 @@ export async function fetchWellKnownIndexUrl(): Promise<string | null> {
   try {
     const res = await fetch('/.well-known/loam.json')
     if (!res.ok) return null
-    const data = await res.json() as { indexUrl?: string }
+    const data = (await res.json()) as { indexUrl?: string }
     return typeof data.indexUrl === 'string' ? data.indexUrl : null
   } catch {
     return null
@@ -260,7 +268,11 @@ export async function storePostMeta(meta: GardenPostMeta): Promise<void> {
 export async function pullPostMeta(slug: string): Promise<GardenPostMeta | null> {
   const result = await privateClient().getFile(`${META_PATH}${slug}.json`)
   if (!result?.data) return null
-  return JSON.parse(result.data as string) as GardenPostMeta
+  try {
+    return GardenPostMetaSchema.parse(JSON.parse(result.data as string))
+  } catch {
+    return null
+  }
 }
 
 export async function removePostMeta(slug: string): Promise<void> {
@@ -295,7 +307,11 @@ export async function storeIndex(index: GardenIndex): Promise<void> {
 export async function pullIndex(): Promise<GardenIndex | null> {
   const result = await publicClient().getFile(INDEX_PATH)
   if (!result?.data) return null
-  return JSON.parse(result.data as string) as GardenIndex
+  try {
+    return GardenIndexSchema.parse(JSON.parse(result.data as string))
+  } catch {
+    return null
+  }
 }
 
 export async function storeFeed(feed: unknown): Promise<void> {
@@ -318,8 +334,14 @@ export async function pullGardenSetting(key: string): Promise<string | null> {
   const result = await privateClient().getFile(SETTINGS_PATH)
   if (!result?.data) return null
 
-  const settings = JSON.parse(result.data as string) as Record<string, string>
-  return settings[key] ?? null
+  try {
+    const settings = JSON.parse(result.data as string)
+    if (typeof settings !== 'object' || settings === null) return null
+    const value = (settings as Record<string, unknown>)[key]
+    return typeof value === 'string' ? value : null
+  } catch {
+    return null
+  }
 }
 
 export async function storeMediaFile(contentPath: string, mimeType: string, data: ArrayBuffer | Blob): Promise<void> {
@@ -360,7 +382,11 @@ export async function resolvePublicMediaUrl(contentPath: string): Promise<string
 export async function pullMediaIndex(): Promise<MediaIndex | null> {
   const result = await privateClient().getFile(MEDIA_INDEX_PATH)
   if (!result?.data) return null
-  return JSON.parse(result.data as string) as MediaIndex
+  try {
+    return MediaIndexSchema.parse(JSON.parse(result.data as string))
+  } catch {
+    return null
+  }
 }
 
 export async function storeMediaIndex(index: MediaIndex): Promise<void> {
@@ -386,7 +412,7 @@ export async function getMediaFileAsObjectUrl(contentPath: string): Promise<stri
       return null
     }
   }
-  const result = await publicClient().getFile(contentPath) as { data?: unknown; mimeType?: string } | null
+  const result = (await publicClient().getFile(contentPath)) as { data?: unknown; mimeType?: string } | null
   if (!result?.data) return null
   const mimeType = result.mimeType ?? 'application/octet-stream'
   if (result.data instanceof Blob) return URL.createObjectURL(result.data)

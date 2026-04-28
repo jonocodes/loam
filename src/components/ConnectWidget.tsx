@@ -1,13 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import Widget from 'remotestorage-widget'
 import { rs } from '../lib/remotestorage'
 
-let widgetAttached = false
-
 export function ConnectWidget() {
+  const attached = useRef(false)
+
   useEffect(() => {
-    if (widgetAttached) return
-    widgetAttached = true
+    if (attached.current) return
+    attached.current = true
     const widget = new Widget(rs)
     widget.attach()
   }, [])

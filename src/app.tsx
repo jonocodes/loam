@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { ConnectWidget } from "./components/ConnectWidget";
-import { LandingView } from "./components/LandingView";
-import { PublicIndexView } from "./components/PublicIndexView";
-import { PublicPostView } from "./components/PublicPostView";
-import { Button } from "./components/ui/button";
-import { Card, CardContent, CardHeader } from "./components/ui/card";
-import { Input } from "./components/ui/input";
-import { MarkdownEditor } from "./components/MarkdownEditor";
-import { MarkdownRenderView } from "./components/MarkdownRenderView";
-import { deletePost, generateSlug, publishPost, unpublishPost } from "./lib/gardenService";
-import { SettingsView } from "./components/SettingsView";
-import { MediaPanel } from "./components/MediaPanel";
+import { useEffect, useMemo, useState } from 'react'
+import { ConnectWidget } from './components/ConnectWidget'
+import { MarkdownEditor } from './components/MarkdownEditor'
+import { MediaPanel } from './components/MediaPanel'
+import { SettingsView } from './components/SettingsView'
+import { Button } from './components/ui/button'
+import { Card, CardContent, CardHeader } from './components/ui/card'
+import { Input } from './components/ui/input'
+import { deletePost, generateSlug, publishPost, unpublishPost } from './lib/gardenService'
+import { parseMarkdownToPost } from './lib/markdown'
+import { buildPublicHomeUrl, buildPublicPostUrl } from './lib/publicUrls'
 import {
   clearCloudSharingCache,
   fetchWellKnownIndexUrl,
@@ -26,252 +24,214 @@ import {
   removePostMeta,
   storePostMarkdown,
   storePostMeta,
-} from "./lib/remotestorage";
-import { parseMarkdownToPost } from "./lib/markdown";
-import { decodeIndexToken, encodeIndexToken } from "./lib/indexToken";
-import type { GardenPostMeta } from "./lib/schema";
+} from './lib/remotestorage'
+import { matchRoute } from './lib/routes'
+import type { GardenPostMeta } from './lib/schema'
 
 function sortByUpdatedDescending(items: GardenPostMeta[]): GardenPostMeta[] {
-  return [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export function App() {
-  const [path, setPath] = useState(window.location.pathname + window.location.search);
-  const [urlPrefix, setUrlPrefix] = useState('');
-  const [connected, setConnected] = useState(isConnected());
-  const [view, setView] = useState<"posts" | "settings">("posts");
-  const [items, setItems] = useState<GardenPostMeta[]>([]);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [path, setPath] = useState(window.location.pathname + window.location.search)
+  const [urlPrefix, setUrlPrefix] = useState('')
+  const [connected, setConnected] = useState(isConnected())
+  const [view, setView] = useState<'posts' | 'settings'>('posts')
+  const [items, setItems] = useState<GardenPostMeta[]>([])
+  const [_selectedSlug, setSelectedSlug] = useState<string | null>(null)
 
-  const [slug, setSlug] = useState<string>('');
-  const [originalSlug, setOriginalSlug] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [excerpt, setExcerpt] = useState("");
-  const [body, setBody] = useState("");
-  const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [status, setStatus] = useState<GardenPostMeta["status"]>("draft");
-  const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown');
-  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown');
-  const [tagsInput, setTagsInput] = useState<string>('');
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [blobUrlToResolved, setBlobUrlToResolved] = useState<Map<string, string>>(new Map());
-  const [mobilePanel, setMobilePanel] = useState<'list' | 'editor'>('list');
-  const [sidebarTab, setSidebarTab] = useState<'posts' | 'media'>('posts');
+  const [slug, setSlug] = useState<string>('')
+  const [originalSlug, setOriginalSlug] = useState<string | null>(null)
+  const [title, setTitle] = useState('')
+  const [excerpt, setExcerpt] = useState('')
+  const [body, setBody] = useState('')
+  const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [status, setStatus] = useState<GardenPostMeta['status']>('draft')
+  const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
+  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>(
+    'text/markdown',
+  )
+  const [tagsInput, setTagsInput] = useState<string>('')
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [blobUrlToResolved, setBlobUrlToResolved] = useState<Map<string, string>>(new Map())
+  const [mobilePanel, setMobilePanel] = useState<'list' | 'editor'>('list')
+  const [sidebarTab, setSidebarTab] = useState<'posts' | 'media'>('posts')
 
-  const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null);
+  const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null)
   // undefined = still checking, null = not found, string = found
-  const [wellKnownIndexUrl, setWellKnownIndexUrl] = useState<string | null | undefined>(undefined);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [wellKnownIndexUrl, setWellKnownIndexUrl] = useState<string | null | undefined>(undefined)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
 
   async function refreshList(): Promise<void> {
-    const all = await pullAllPostMeta();
-    setItems(sortByUpdatedDescending(all));
+    const all = await pullAllPostMeta()
+    setItems(sortByUpdatedDescending(all))
   }
 
   useEffect(() => {
-    if (!connected) { setPublicIndexUrl(null); return }
-    void loadPublicIndexUrl().then(setPublicIndexUrl).catch(() => setPublicIndexUrl(null))
-  }, [connected]);
+    let cancelled = false
 
-  useEffect(() => {
-    const connectedHandler = () => setConnected(true);
-    const disconnectedHandler = () => { setConnected(false); clearCloudSharingCache(); };
-    const popStateHandler = () => setPath(window.location.pathname + window.location.search);
-    onConnected(connectedHandler);
-    onDisconnected(disconnectedHandler);
-    window.addEventListener("popstate", popStateHandler);
+    const connectedHandler = () => {
+      if (!cancelled) setConnected(true)
+    }
+    const disconnectedHandler = () => {
+      if (!cancelled) {
+        setConnected(false)
+        clearCloudSharingCache()
+      }
+    }
+    const popStateHandler = () => {
+      if (!cancelled) setPath(window.location.pathname + window.location.search)
+    }
+    onConnected(connectedHandler)
+    onDisconnected(disconnectedHandler)
+    window.addEventListener('popstate', popStateHandler)
 
-    void fetchWellKnownIndexUrl().then(setWellKnownIndexUrl);
+    void fetchWellKnownIndexUrl().then((u) => {
+      if (!cancelled) setWellKnownIndexUrl(u)
+    })
 
-    void refreshList().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : String(err));
-    });
+    void pullAllPostMeta()
+      .then((all) => {
+        if (!cancelled) setItems(sortByUpdatedDescending(all))
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
 
-    void pullGardenSetting("title").then((t) => {
-      if (t) document.title = t;
-    });
+    void pullGardenSetting('title').then((t) => {
+      if (!cancelled && t) document.title = t
+    })
 
     void pullIndex().then((index) => {
-      if (index?.urlPrefix) setUrlPrefix(index.urlPrefix);
-    });
+      if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+    })
 
-    return () => window.removeEventListener("popstate", popStateHandler);
-  }, []);
+    return () => {
+      cancelled = true
+      window.removeEventListener('popstate', popStateHandler)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!connected) {
+      setPublicIndexUrl(null)
+      return
+    }
+    void loadPublicIndexUrl()
+      .then(setPublicIndexUrl)
+      .catch(() => setPublicIndexUrl(null))
+  }, [connected])
 
   function loadPost(meta: GardenPostMeta): void {
-    setSelectedSlug(meta.slug);
-    setSlug(meta.slug);
-    setOriginalSlug(meta.slug);
-    setTitle(meta.title);
-    setExcerpt(meta.excerpt);
-    setStatus(meta.status);
-    setPostDate(meta.publishedAt ? meta.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10));
-    const mt = (meta.mediaType ?? 'text/markdown') as 'text/markdown' | 'text/html' | 'text/plain';
-    setMediaType(mt);
-    setOriginalMediaType(mt);
-    setTagsInput(meta.tags?.join(', ') ?? '');
-    setMessage("");
-    setError("");
+    setSelectedSlug(meta.slug)
+    setSlug(meta.slug)
+    setOriginalSlug(meta.slug)
+    setTitle(meta.title)
+    setExcerpt(meta.excerpt)
+    setStatus(meta.status)
+    setPostDate(meta.publishedAt ? meta.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
+    const mt = (meta.mediaType ?? 'text/markdown') as 'text/markdown' | 'text/html' | 'text/plain'
+    setMediaType(mt)
+    setOriginalMediaType(mt)
+    setTagsInput(meta.tags?.join(', ') ?? '')
+    setMessage('')
+    setError('')
 
     void pullPostMarkdown(meta.slug, meta.mediaType)
-      .then((content) => setBody(content ?? ""))
+      .then((content) => setBody(content ?? ''))
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : String(err));
-      });
+        setError(err instanceof Error ? err.message : String(err))
+      })
   }
 
   function clearEditor(): void {
-    setSelectedSlug(null);
-    setSlug('');
-    setOriginalSlug(null);
-    setTitle("");
-    setExcerpt("");
-    setBody("");
-    setPostDate(new Date().toISOString().slice(0, 10));
-    setStatus("draft");
-    setMediaType('text/markdown');
-    setOriginalMediaType('text/markdown');
-    setTagsInput('');
-    setError("");
-    setMessage("");
+    setSelectedSlug(null)
+    setSlug('')
+    setOriginalSlug(null)
+    setTitle('')
+    setExcerpt('')
+    setBody('')
+    setPostDate(new Date().toISOString().slice(0, 10))
+    setStatus('draft')
+    setMediaType('text/markdown')
+    setOriginalMediaType('text/markdown')
+    setTagsInput('')
+    setError('')
+    setMessage('')
   }
 
   const selectedMeta = useMemo(
     () => items.find((item) => item.slug === (originalSlug ?? slug)) ?? null,
-    [items, originalSlug, slug]
-  );
+    [items, originalSlug, slug],
+  )
 
   const allTags = useMemo(() => {
     const set = new Set<string>()
-    for (const item of items) item.tags?.forEach((t) => set.add(t))
+    for (const item of items) {
+      for (const t of item.tags ?? []) {
+        set.add(t)
+      }
+    }
     return [...set].sort()
   }, [items])
 
   const visibleItems = useMemo(
-    () => tagFilter ? items.filter((item) => item.tags?.includes(tagFilter)) : items,
+    () => (tagFilter ? items.filter((item) => item.tags?.includes(tagFilter)) : items),
     [items, tagFilter],
   )
 
-  const publicIndexToken = publicIndexUrl ? encodeIndexToken(publicIndexUrl) : null;
+  const publicHomePageUrl = buildPublicHomeUrl(publicIndexUrl, urlPrefix || '', 'e2')
 
-  const freePart = urlPrefix || 'garden';
-  const indexSegment = publicIndexToken ? `${freePart}/${publicIndexToken}` : null;
+  const publicPostPageUrl = originalSlug
+    ? buildPublicPostUrl(publicIndexUrl, urlPrefix || '', 'e2', originalSlug)
+    : null
 
-  const publicHomePageUrl = indexSegment
-    ? `${window.location.origin}/p/${indexSegment}`
-    : null;
+  const pathname = path.split('?')[0]
+  const { render } = matchRoute(pathname, window.location.search, wellKnownIndexUrl)
+  const routeResult = render() as ReturnType<typeof render>
 
-  const publicPostPageUrl =
-    originalSlug && indexSegment
-      ? `${window.location.origin}/p/${indexSegment}/${originalSlug}`
-      : null;
-
-  const pathname = path.split("?")[0];
-
-  if (pathname === "/") {
-    const params = new URLSearchParams(window.location.search);
-    const indexQueryUrl = params.get("index");
-    const resolvedIndexUrl = indexQueryUrl ?? (wellKnownIndexUrl !== undefined ? wellKnownIndexUrl : null);
-
-    if (resolvedIndexUrl) {
-      return <PublicIndexView indexUrl={resolvedIndexUrl} />;
-    }
-
-    if (wellKnownIndexUrl === undefined) {
-      return null; // briefly blank while checking /.well-known/loam.json
-    }
-
-    return <LandingView />;
-  }
-
-  if (pathname.startsWith("/render/")) {
-    const encodedUrl = pathname.slice("/render/".length);
-    return <MarkdownRenderView encodedUrl={encodedUrl} />;
-  }
-
-  if (pathname.startsWith("/public/")) {
-    const postSlug = pathname.split("/").filter(Boolean)[1];
-    if (!postSlug) {
-      return <p className="mx-auto max-w-3xl p-6 text-red-600">Missing post slug in URL.</p>;
-    }
-    return <PublicPostView postSlug={postSlug} />;
-  }
-
-  if (pathname.startsWith("/p/")) {
-    // Structure: /p/{freetext}/{encoded}[/{postSlug}]
-    const parts = pathname.split("/").filter(Boolean);
-
-    // /p/{slug} — well-known masked domain post
-    if (parts.length === 2) {
-      if (wellKnownIndexUrl === undefined) return null;
-      if (wellKnownIndexUrl) {
-        return <PublicPostView postSlug={parts[1]} indexUrl={wellKnownIndexUrl} indexBasePath="/" />;
-      }
-      return <LandingView />;
-    }
-    const encodedPart = parts[2];
-    const postSlug = parts[3];
-
-    const indexUrl = encodedPart ? decodeIndexToken(encodedPart) : null;
-
-    if (encodedPart && !indexUrl) {
-      return (
-        <p className="mx-auto max-w-3xl p-6 text-red-600">
-          "{encodedPart}" does not decode to an index URL
-        </p>
-      );
-    }
-
-    const indexBasePath = `/p/${parts[1]}/${encodedPart ?? ''}`;
-
-    if (postSlug) {
-      return (
-        <PublicPostView
-          postSlug={postSlug}
-          indexUrl={indexUrl ?? undefined}
-          indexBasePath={indexBasePath}
-        />
-      );
-    }
-    return <PublicIndexView indexUrl={indexUrl ?? undefined} indexBasePath={indexBasePath} />;
-  }
-
-  if (pathname !== "/write") {
-    return <LandingView />;
+  if (routeResult !== null) {
+    return routeResult
   }
 
   async function saveDraft(): Promise<void> {
-    setBusy(true);
-    setError("");
-    setMessage("");
+    setBusy(true)
+    setError('')
+    setMessage('')
 
     try {
-      const now = new Date().toISOString();
-      const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
-      const parsed = parseMarkdownToPost(body);
-      const resolvedTitle = mediaType === 'text/markdown'
-        ? (title.trim() || parsed.title || "Untitled")
-        : (title.trim() || "Untitled");
-      const resolvedExcerpt = excerpt.trim() || parsed.excerpt;
-      const rawBody = mediaType === 'text/markdown' ? parsed.body : body.trim();
-      let parsedBody = rawBody;
+      const now = new Date().toISOString()
+      const tags = tagsInput
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+      const parsed = parseMarkdownToPost(body)
+      const resolvedTitle =
+        mediaType === 'text/markdown' ? title.trim() || parsed.title || 'Untitled' : title.trim() || 'Untitled'
+      const resolvedExcerpt = excerpt.trim() || parsed.excerpt
+      const rawBody = mediaType === 'text/markdown' ? parsed.body : body.trim()
+      let parsedBody = rawBody
       for (const [blobUrl, resolvedUrl] of blobUrlToResolved) {
-        parsedBody = parsedBody.split(blobUrl).join(resolvedUrl);
+        parsedBody = parsedBody.split(blobUrl).join(resolvedUrl)
       }
 
       const resolvedSlug = slug.trim()
-        ? slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
-        : await generateSlug(resolvedTitle || 'untitled');
+        ? slug
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+        : await generateSlug(resolvedTitle || 'untitled')
 
-      const slugChanged = originalSlug !== null && resolvedSlug !== originalSlug;
-      const mediaTypeChanged = originalSlug !== null && mediaType !== originalMediaType;
+      const slugChanged = originalSlug !== null && resolvedSlug !== originalSlug
+      const mediaTypeChanged = originalSlug !== null && mediaType !== originalMediaType
 
-      const createdAt = selectedMeta?.createdAt ?? now;
-      const nextStatus = selectedMeta?.status ?? "draft";
-      const nextPublishedAt = postDate ? new Date(postDate).toISOString() : (selectedMeta?.publishedAt ?? null);
-      const nextDeletedAt = selectedMeta?.deletedAt ?? null;
+      const createdAt = selectedMeta?.createdAt ?? now
+      const nextStatus = selectedMeta?.status ?? 'draft'
+      const nextPublishedAt = postDate ? new Date(postDate).toISOString() : (selectedMeta?.publishedAt ?? null)
+      const nextDeletedAt = selectedMeta?.deletedAt ?? null
 
       const meta: GardenPostMeta = {
         version: 1,
@@ -285,76 +245,76 @@ export function App() {
         publishedAt: nextPublishedAt,
         deletedAt: nextDeletedAt,
         ...(mediaType !== 'text/markdown' ? { mediaType } : {}),
-      };
-
-      const needsRename = (slugChanged || mediaTypeChanged) && originalSlug;
-      if (needsRename) {
-        await storePostMeta(meta);
-        await storePostMarkdown(resolvedSlug, parsedBody, mediaType);
-        await removePostMarkdown(originalSlug, originalMediaType);
-        if (slugChanged) await removePostMeta(originalSlug);
-        if (nextStatus === 'published') {
-          setMessage('Saved. Post was published — republish to update the public site.');
-        } else {
-          setMessage('Saved');
-        }
-      } else {
-        await storePostMeta(meta);
-        await storePostMarkdown(resolvedSlug, parsedBody, mediaType);
-        setMessage('Saved');
       }
 
-      setSlug(resolvedSlug);
-      setOriginalSlug(resolvedSlug);
-      setTitle(meta.title);
-      setExcerpt(meta.excerpt);
-      setBody(parsedBody);
-      setStatus(meta.status);
-      setOriginalMediaType(mediaType);
-      setBlobUrlToResolved(new Map());
-      await refreshList();
+      const needsRename = (slugChanged || mediaTypeChanged) && originalSlug
+      if (needsRename) {
+        await storePostMeta(meta)
+        await storePostMarkdown(resolvedSlug, parsedBody, mediaType)
+        await removePostMarkdown(originalSlug, originalMediaType)
+        if (slugChanged) await removePostMeta(originalSlug)
+        if (nextStatus === 'published') {
+          setMessage('Saved. Post was published — republish to update the public site.')
+        } else {
+          setMessage('Saved')
+        }
+      } else {
+        await storePostMeta(meta)
+        await storePostMarkdown(resolvedSlug, parsedBody, mediaType)
+        setMessage('Saved')
+      }
+
+      setSlug(resolvedSlug)
+      setOriginalSlug(resolvedSlug)
+      setTitle(meta.title)
+      setExcerpt(meta.excerpt)
+      setBody(parsedBody)
+      setStatus(meta.status)
+      setOriginalMediaType(mediaType)
+      setBlobUrlToResolved(new Map())
+      await refreshList()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
   }
 
-  async function runAction(action: "publish" | "unpublish" | "delete"): Promise<void> {
-    setBusy(true);
-    setError("");
-    setMessage("");
+  async function runAction(action: 'publish' | 'unpublish' | 'delete'): Promise<void> {
+    setBusy(true)
+    setError('')
+    setMessage('')
 
     try {
       if (!slug && !originalSlug) {
-        throw new Error("Select or save a post first");
+        throw new Error('Select or save a post first')
       }
 
-      const activeSlug = originalSlug ?? slug;
+      const activeSlug = originalSlug ?? slug
 
-      if (action === "publish") {
-        await publishPost(activeSlug);
-        setMessage("Post published");
-        setStatus("published");
-        void loadPublicIndexUrl().then(setPublicIndexUrl);
-      } else if (action === "unpublish") {
-        await unpublishPost(activeSlug);
-        setMessage("Post unpublished");
-        setStatus("unpublished");
-      } else if (action === "delete") {
-        const confirmed = window.confirm("Delete this post markdown and metadata?");
-        if (!confirmed) return;
-        await deletePost(activeSlug);
-        setMessage("Post deleted");
-        clearEditor();
-        setMobilePanel('list');
+      if (action === 'publish') {
+        await publishPost(activeSlug)
+        setMessage('Post published')
+        setStatus('published')
+        void loadPublicIndexUrl().then(setPublicIndexUrl)
+      } else if (action === 'unpublish') {
+        await unpublishPost(activeSlug)
+        setMessage('Post unpublished')
+        setStatus('unpublished')
+      } else if (action === 'delete') {
+        const confirmed = window.confirm('Delete this post markdown and metadata?')
+        if (!confirmed) return
+        await deletePost(activeSlug)
+        setMessage('Post deleted')
+        clearEditor()
+        setMobilePanel('list')
       }
 
-      await refreshList();
+      await refreshList()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
   }
 
@@ -366,18 +326,10 @@ export function App() {
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <h1 className="text-2xl font-semibold md:text-3xl">Loam</h1>
           <nav className="flex flex-wrap gap-2">
-            <Button
-              variant={view === "posts" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setView("posts")}
-            >
+            <Button variant={view === 'posts' ? 'default' : 'outline'} size="sm" onClick={() => setView('posts')}>
               Posts
             </Button>
-            <Button
-              variant={view === "settings" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setView("settings")}
-            >
+            <Button variant={view === 'settings' ? 'default' : 'outline'} size="sm" onClick={() => setView('settings')}>
               Settings
             </Button>
             {publicHomePageUrl ? (
@@ -390,28 +342,28 @@ export function App() {
           </nav>
         </div>
         <p className="text-sm text-slate-600">
-          <strong className="text-slate-900">{connected ? "Connected" : "Not connected"}</strong>.{" "}
+          <strong className="text-slate-900">{connected ? 'Connected' : 'Not connected'}</strong>.{' '}
           {connected
-            ? "Your posts sync to remote storage."
-            : "Use the sync widget in the page corner if you want your site to be public."}
+            ? 'Your posts sync to remote storage.'
+            : 'Use the sync widget in the page corner if you want your site to be public.'}
         </p>
       </header>
 
-      {view === "settings" ? <SettingsView onSave={(prefix) => setUrlPrefix(prefix)} /> : null}
+      {view === 'settings' ? <SettingsView onSave={(prefix) => setUrlPrefix(prefix)} /> : null}
 
-      <section
-        className={`grid grid-cols-1 gap-4 md:grid-cols-[320px_1fr]${view === "settings" ? " hidden" : ""}`}
-      >
+      <section className={`grid grid-cols-1 gap-4 md:grid-cols-[320px_1fr]${view === 'settings' ? ' hidden' : ''}`}>
         <Card className={mobilePanel === 'editor' ? 'hidden md:block' : ''}>
           <CardHeader>
             <div className="flex gap-3">
               <button
+                type="button"
                 className={`text-sm font-semibold ${sidebarTab === 'posts' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'}`}
                 onClick={() => setSidebarTab('posts')}
               >
                 Posts
               </button>
               <button
+                type="button"
                 className={`text-sm font-semibold ${sidebarTab === 'media' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'}`}
                 onClick={() => setSidebarTab('media')}
               >
@@ -419,7 +371,14 @@ export function App() {
               </button>
             </div>
             {sidebarTab === 'posts' ? (
-              <Button variant="outline" size="sm" onClick={() => { clearEditor(); setMobilePanel('editor'); }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  clearEditor()
+                  setMobilePanel('editor')
+                }}
+              >
                 New
               </Button>
             ) : null}
@@ -428,11 +387,11 @@ export function App() {
             {sidebarTab === 'media' ? (
               <MediaPanel
                 onInsert={(fragment, blobUrl, resolvedUrl) => {
-                  setBody((prev) => prev ? `${prev}\n${fragment}` : fragment);
+                  setBody((prev) => (prev ? `${prev}\n${fragment}` : fragment))
                   if (blobUrl && resolvedUrl) {
-                    setBlobUrlToResolved((prev) => new Map(prev).set(blobUrl, resolvedUrl));
+                    setBlobUrlToResolved((prev) => new Map(prev).set(blobUrl, resolvedUrl))
                   }
-                  setMobilePanel('editor');
+                  setMobilePanel('editor')
                 }}
               />
             ) : (
@@ -442,6 +401,7 @@ export function App() {
                     {allTags.map((tag) => (
                       <button
                         key={tag}
+                        type="button"
                         onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
                         className={`rounded-full px-2 py-0.5 text-xs transition-colors ${tagFilter === tag ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
@@ -450,14 +410,21 @@ export function App() {
                     ))}
                   </div>
                 ) : null}
-                {visibleItems.length === 0 ? <p className="text-sm text-slate-500">{items.length === 0 ? 'No posts yet.' : 'No posts with this tag.'}</p> : null}
+                {visibleItems.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    {items.length === 0 ? 'No posts yet.' : 'No posts with this tag.'}
+                  </p>
+                ) : null}
                 <ul className="space-y-2">
                   {visibleItems.map((item) => (
                     <li key={item.slug}>
                       <Button
                         variant="secondary"
                         className="h-auto w-full justify-start p-3 text-left"
-                        onClick={() => { loadPost(item); setMobilePanel('editor'); }}
+                        onClick={() => {
+                          loadPost(item)
+                          setMobilePanel('editor')
+                        }}
                       >
                         <div>
                           <div className="font-semibold">{item.title}</div>
@@ -490,12 +457,10 @@ export function App() {
 
             <label className="grid gap-1 text-sm">
               <span className="font-medium">Slug</span>
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="(autogenerated)"
-              />
-              <span className="text-xs text-slate-500">URL-friendly identifier. Leave empty to auto-generate from title.</span>
+              <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="(autogenerated)" />
+              <span className="text-xs text-slate-500">
+                URL-friendly identifier. Leave empty to auto-generate from title.
+              </span>
             </label>
 
             <label className="grid gap-1 text-sm">
@@ -505,11 +470,7 @@ export function App() {
 
             <label className="grid gap-1 text-sm">
               <span className="font-medium">Tags</span>
-              <Input
-                value={tagsInput}
-                onChange={(e) => setTagsInput(e.target.value)}
-                placeholder="tag1, tag2, tag3"
-              />
+              <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="tag1, tag2, tag3" />
               <span className="text-xs text-slate-500">Comma-separated.</span>
             </label>
 
@@ -521,48 +482,54 @@ export function App() {
             <fieldset className="grid gap-1 text-sm">
               <span className="font-medium">Format</span>
               <div className="flex gap-4">
-                {([
-                  ['text/markdown', 'Markdown'],
-                  ['text/html', 'HTML'],
-                  ['text/plain', 'Plain text'],
-                ] as const).map(([value, label]) => (
+                {(
+                  [
+                    ['text/markdown', 'Markdown'],
+                    ['text/html', 'HTML'],
+                    ['text/plain', 'Plain text'],
+                  ] as const
+                ).map(([value, label]) => (
                   <label key={value} className="flex items-center gap-1.5">
-                    <input type="radio" name="mediaType" value={value} checked={mediaType === value} onChange={() => setMediaType(value)} />
+                    <input
+                      type="radio"
+                      name="mediaType"
+                      value={value}
+                      checked={mediaType === value}
+                      onChange={() => setMediaType(value)}
+                    />
                     <span>{label}</span>
                   </label>
                 ))}
               </div>
-              <span className="text-xs text-slate-500">Controls how the body is rendered when published. Does not convert existing content.</span>
+              <span className="text-xs text-slate-500">
+                Controls how the body is rendered when published. Does not convert existing content.
+              </span>
             </fieldset>
 
             <label className="grid gap-1 text-sm">
               <span className="font-medium">Body</span>
-              <MarkdownEditor value={body} onChange={setBody} language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'} />
+              <MarkdownEditor
+                value={body}
+                onChange={setBody}
+                language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'}
+              />
             </label>
 
             <div className="flex flex-wrap gap-2">
               <Button disabled={busy} onClick={() => void saveDraft()}>
                 Save
               </Button>
-              <span title={!connected ? "Connect a remote storage provider to publish" : undefined}>
-                <Button disabled={busy || !connected} variant="secondary" onClick={() => void runAction("publish")}>
+              <span title={!connected ? 'Connect a remote storage provider to publish' : undefined}>
+                <Button disabled={busy || !connected} variant="secondary" onClick={() => void runAction('publish')}>
                   Publish
                 </Button>
               </span>
-              <span title={!connected ? "Connect a remote storage provider to unpublish" : undefined}>
-                <Button
-                  disabled={busy || !connected}
-                  variant="secondary"
-                  onClick={() => void runAction("unpublish")}
-                >
+              <span title={!connected ? 'Connect a remote storage provider to unpublish' : undefined}>
+                <Button disabled={busy || !connected} variant="secondary" onClick={() => void runAction('unpublish')}>
                   Unpublish
                 </Button>
               </span>
-              <Button
-                disabled={busy}
-                variant="destructive"
-                onClick={() => void runAction("delete")}
-              >
+              <Button disabled={busy} variant="destructive" onClick={() => void runAction('delete')}>
                 Delete
               </Button>
               {publicPostPageUrl ? (
@@ -581,5 +548,5 @@ export function App() {
         </Card>
       </section>
     </main>
-  );
+  )
 }

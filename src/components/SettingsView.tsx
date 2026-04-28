@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { rebuildIndex, saveSiteSettings } from '../lib/gardenService'
-import { getGardenSettingsUrl, loadPublicIndexUrl, resolvePublicFeedAtomUrl, resolvePublicFeedUrl, pullGardenSetting, pullIndex } from '../lib/remotestorage'
 import { encodeIndexToken } from '../lib/indexToken'
+import {
+  getGardenSettingsUrl,
+  loadPublicIndexUrl,
+  pullGardenSetting,
+  pullIndex,
+  resolvePublicFeedAtomUrl,
+  resolvePublicFeedUrl,
+} from '../lib/remotestorage'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import { Input } from './ui/input'
@@ -82,80 +89,124 @@ export function SettingsView({ onSave }: Props = {}) {
         </label>
         <label className="grid gap-1 text-sm">
           <span className="font-medium">Tagline</span>
-          <Input value={tagline} onChange={(e) => setTagline(e.target.value)} placeholder="A short description of your site" />
+          <Input
+            value={tagline}
+            onChange={(e) => setTagline(e.target.value)}
+            placeholder="A short description of your site"
+          />
         </label>
         <label className="grid gap-1 text-sm">
           <span className="font-medium">URL prefix</span>
           <Input value={urlPrefix} onChange={(e) => setUrlPrefix(e.target.value)} placeholder="yourname" />
-          <span className="text-xs text-slate-500">Appears in public URLs: /p/<em>yourname</em>/…</span>
+          <span className="text-xs text-slate-500">
+            Appears in public URLs: /p/<em>yourname</em>/…
+          </span>
         </label>
         <fieldset className="grid gap-1 text-sm">
           <span className="font-medium">URL encoding</span>
           <div className="flex flex-col gap-1">
             <label className="flex items-center gap-2">
-              <input type="radio" name="urlEncoding" value="e2" checked={urlEncoding === 'e2'} onChange={() => setUrlEncoding('e2')} />
-              <span>e2 — Base64 URL-safe <span className="text-slate-500">(default)</span></span>
+              <input
+                type="radio"
+                name="urlEncoding"
+                value="e2"
+                checked={urlEncoding === 'e2'}
+                onChange={() => setUrlEncoding('e2')}
+              />
+              <span>
+                e2 — Base64 URL-safe <span className="text-slate-500">(default)</span>
+              </span>
             </label>
             <label className="flex items-center gap-2">
-              <input type="radio" name="urlEncoding" value="e1" checked={urlEncoding === 'e1'} onChange={() => setUrlEncoding('e1')} />
+              <input
+                type="radio"
+                name="urlEncoding"
+                value="e1"
+                checked={urlEncoding === 'e1'}
+                onChange={() => setUrlEncoding('e1')}
+              />
               <span>e1 — Plain URL encoding</span>
             </label>
           </div>
         </fieldset>
         <div className="flex flex-wrap gap-2">
-          <Button disabled={busy} onClick={() => void handleSave()}>Save settings</Button>
-          <Button disabled={busy} variant="outline" onClick={() => void handleRebuild()}>Rebuild index</Button>
+          <Button disabled={busy} onClick={() => void handleSave()}>
+            Save settings
+          </Button>
+          <Button disabled={busy} variant="outline" onClick={() => void handleRebuild()}>
+            Rebuild index
+          </Button>
         </div>
         {message ? <p className="text-sm text-green-700">{message}</p> : null}
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        {publicIndexUrl ? (() => {
-          const token = encodeIndexToken(publicIndexUrl, urlEncoding)
-          const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
-          const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
-          return (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-              <div>
-                <p className="mb-1 text-xs font-medium text-slate-500">Your public site</p>
-                <a
-                  className="break-all text-sm font-medium text-slate-900 underline underline-offset-4"
-                  href={siteUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {siteUrl}
-                </a>
-              </div>
-              <div>
-                <p className="mb-1 text-xs font-medium text-slate-500">URL-param version (for domain masking)</p>
-                <a
-                  className="break-all text-sm text-slate-700 underline underline-offset-4"
-                  href={maskedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {maskedUrl}
-                </a>
-              </div>
-            </div>
-          )
-        })() : null}
+        {publicIndexUrl
+          ? (() => {
+              const token = encodeIndexToken(publicIndexUrl, urlEncoding)
+              const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
+              const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
+              return (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-slate-500">Your public site</p>
+                    <a
+                      className="break-all text-sm font-medium text-slate-900 underline underline-offset-4"
+                      href={siteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {siteUrl}
+                    </a>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-slate-500">URL-param version (for domain masking)</p>
+                    <a
+                      className="break-all text-sm text-slate-700 underline underline-offset-4"
+                      href={maskedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {maskedUrl}
+                    </a>
+                  </div>
+                </div>
+              )
+            })()
+          : null}
         <div className="border-t border-slate-200 pt-4 text-xs text-slate-400 space-y-0.5">
-          <p>Powered by <a className="underline underline-offset-4 hover:text-slate-600" href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer">Loam</a></p>
+          <p>
+            Powered by{' '}
+            <a
+              className="underline underline-offset-4 hover:text-slate-600"
+              href="https://github.com/jonocodes/loam"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Loam
+            </a>
+          </p>
           <p>Deployed {new Date(__BUILD_TIME__).toLocaleString()}</p>
         </div>
         {publicIndexUrl || publicFeedUrl || publicFeedAtomUrl || gardenSettingsUrl ? (
           <div className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-sm">
             {publicIndexUrl ? (
-              <a className="underline underline-offset-4" href={publicIndexUrl} target="_blank" rel="noreferrer">Open index.json</a>
+              <a className="underline underline-offset-4" href={publicIndexUrl} target="_blank" rel="noreferrer">
+                Open index.json
+              </a>
             ) : null}
             {publicFeedUrl ? (
-              <a className="underline underline-offset-4" href={publicFeedUrl} target="_blank" rel="noreferrer">Open feed.json</a>
+              <a className="underline underline-offset-4" href={publicFeedUrl} target="_blank" rel="noreferrer">
+                Open feed.json
+              </a>
             ) : null}
             {publicFeedAtomUrl ? (
-              <a className="underline underline-offset-4" href={publicFeedAtomUrl} target="_blank" rel="noreferrer">Open feed.atom</a>
+              <a className="underline underline-offset-4" href={publicFeedAtomUrl} target="_blank" rel="noreferrer">
+                Open feed.atom
+              </a>
             ) : null}
             {gardenSettingsUrl ? (
-              <a className="underline underline-offset-4" href={gardenSettingsUrl} target="_blank" rel="noreferrer">Open garden.json</a>
+              <a className="underline underline-offset-4" href={gardenSettingsUrl} target="_blank" rel="noreferrer">
+                Open garden.json
+              </a>
             ) : null}
           </div>
         ) : null}

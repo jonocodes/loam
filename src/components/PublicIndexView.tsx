@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { navigate } from '../lib/navigate'
-import { encodeIndexToken } from '../lib/indexToken'
+import { buildPostLinkUrl } from '../lib/publicUrls'
 import { getPublicIndexUrl } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 
@@ -24,12 +24,18 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
 
   const allTags = useMemo(() => {
     const set = new Set<string>()
-    index?.posts.forEach((p) => p.tags?.forEach((t) => set.add(t)))
+    if (index) {
+      for (const p of index.posts) {
+        for (const t of p.tags ?? []) {
+          set.add(t)
+        }
+      }
+    }
     return [...set].sort()
   }, [index])
 
   const visiblePosts = useMemo(
-    () => tagFilter ? (index?.posts.filter((p) => p.tags?.includes(tagFilter)) ?? []) : (index?.posts ?? []),
+    () => (tagFilter ? (index?.posts.filter((p) => p.tags?.includes(tagFilter)) ?? []) : (index?.posts ?? [])),
     [index, tagFilter],
   )
 
@@ -96,6 +102,7 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
           {allTags.map((tag) => (
             <button
               key={tag}
+              type="button"
               onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
               className={`rounded-full px-3 py-1 text-xs transition-colors ${tagFilter === tag ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
@@ -107,24 +114,17 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
 
       <ul className="space-y-4">
         {visiblePosts.map((post) => {
-          const onRoot = window.location.pathname === '/'
-          const hasIndexParam = new URLSearchParams(window.location.search).has('index')
-          const postUrl = indexBasePath
-            ? `${window.location.origin}${indexBasePath}/${post.slug}`
-            : onRoot && indexUrl && !hasIndexParam
-              ? `${window.location.origin}/p/${post.slug}`
-              : onRoot && indexUrl
-                ? `${window.location.origin}/?index=${encodeURIComponent(indexUrl)}&post=${post.slug}`
-                : indexUrl
-                  ? `${window.location.origin}/p/${encodeIndexToken(indexUrl, index.urlEncoding ?? 'e2')}/${post.slug}`
-                  : `${window.location.origin}/public/${post.slug}`
+          const postUrl = buildPostLinkUrl(indexUrl, indexBasePath ?? null, index.urlEncoding ?? 'e2', post.slug)
 
           return (
             <li key={post.slug} className="rounded-lg border border-slate-200 bg-white p-4">
               <a
                 className="text-lg font-semibold text-slate-900 underline underline-offset-4"
                 href={postUrl}
-                onClick={(e) => { e.preventDefault(); navigate(postUrl, { entry: post } satisfies { entry: GardenIndexEntry }) }}
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate(postUrl, { entry: post } satisfies { entry: GardenIndexEntry })
+                }}
               >
                 {post.title}
               </a>
@@ -132,11 +132,15 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
               {post.tags && post.tags.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {post.tags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{tag}</span>
+                    <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                      {tag}
+                    </span>
                   ))}
                 </div>
               ) : null}
-              <p className="mt-2 text-xs text-slate-500">Published {post.date || new Date(post.publishedAt).toLocaleDateString()}</p>
+              <p className="mt-2 text-xs text-slate-500">
+                Published {post.date || new Date(post.publishedAt).toLocaleDateString()}
+              </p>
             </li>
           )
         })}
@@ -144,7 +148,14 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
 
       <footer className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
         Published with{' '}
-        <a className="underline underline-offset-4 hover:text-slate-600" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
+        <a
+          className="underline underline-offset-4 hover:text-slate-600"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault()
+            navigate('/')
+          }}
+        >
           Loam
         </a>
       </footer>

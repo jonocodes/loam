@@ -1,8 +1,8 @@
 export type UrlEncoding = 'e1' | 'e2'
 
 export function encodeIndexToken(url: string, encoding: UrlEncoding = 'e2'): string {
-  if (encoding === 'e1') return 'e1:' + encodeURIComponent(url)
-  return 'e2:' + btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  if (encoding === 'e1') return `e1:${encodeURIComponent(url)}`
+  return `e2:${btoa(url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`
 }
 
 export function decodeIndexToken(token: string): string | null {

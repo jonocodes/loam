@@ -1,6 +1,6 @@
+import hljs from 'highlight.js'
 import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
-import hljs from 'highlight.js'
 import { useMemo } from 'react'
 import 'highlight.js/styles/github.css'
 import { navigate } from '../lib/navigate'
@@ -12,7 +12,7 @@ marked.use(
       const language = hljs.getLanguage(lang) ? lang : 'plaintext'
       return hljs.highlight(code, { language }).value
     },
-  })
+  }),
 )
 
 interface Props {
@@ -23,7 +23,8 @@ function handleClick(e: React.MouseEvent<HTMLDivElement>) {
   const anchor = (e.target as HTMLElement).closest('a')
   if (!anchor) return
   const href = anchor.getAttribute('href')
-  if (!href || href.includes('://') || href.startsWith('/') || href.startsWith('#') || href.startsWith('mailto:')) return
+  if (!href || href.includes('://') || href.startsWith('/') || href.startsWith('#') || href.startsWith('mailto:'))
+    return
   e.preventDefault()
   navigate(new URL(href, window.location.href).pathname)
 }

@@ -1,5 +1,5 @@
-import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
+import type * as React from 'react'
 import { cn } from './cn'
 
 const buttonVariants = cva(
@@ -25,7 +25,12 @@ const buttonVariants = cva(
   },
 )
 
-function Button({ className, variant, size, ...props }: React.ComponentProps<'button'> & VariantProps<typeof buttonVariants>) {
+function Button({
+  className,
+  variant,
+  size,
+  ...props
+}: React.ComponentProps<'button'> & VariantProps<typeof buttonVariants>) {
   return <button data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />
 }
 

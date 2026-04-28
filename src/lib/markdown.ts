@@ -30,7 +30,11 @@ export function parseMarkdownToPost(content: string): ParsedMarkdownPost {
     const headingMatch = lines[firstIndex].match(/^#\s+(.+)\s*$/)
     if (headingMatch) {
       const title = headingMatch[1].trim() || null
-      const body = lines.slice(0, firstIndex).concat(lines.slice(firstIndex + 1)).join('\n').trim()
+      const body = lines
+        .slice(0, firstIndex)
+        .concat(lines.slice(firstIndex + 1))
+        .join('\n')
+        .trim()
       return {
         title,
         body,

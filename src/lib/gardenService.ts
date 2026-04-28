@@ -1,6 +1,5 @@
 import {
   createEmptyIndex,
-  markMetaDeleted,
   publishMeta,
   rebuildIndexFromPublishedMeta,
   removeIndexEntry,
@@ -11,7 +10,6 @@ import {
   upsertIndexEntry,
   upsertMediaItem,
 } from './gardenIndex'
-import { buildDatedSlug, ensureUniqueSlug } from './slugs'
 import {
   deleteMediaFile,
   markdownExists,
@@ -28,9 +26,9 @@ import {
   resolvePublicIndexUrl,
   resolvePublicMediaUrl,
   resolvePublicPostUrl,
-  storeGardenSetting,
   storeFeed,
   storeFeedAtom,
+  storeGardenSetting,
   storeIndex,
   storeMediaFile,
   storeMediaIndex,
@@ -38,7 +36,7 @@ import {
   storePostMeta,
 } from './remotestorage'
 import type { GardenIndex, MediaIndex, MediaItem } from './schema'
-
+import { buildDatedSlug, ensureUniqueSlug } from './slugs'
 
 async function loadIndexOrCreate(): Promise<GardenIndex> {
   return (await pullIndex()) ?? createEmptyIndex()
@@ -47,7 +45,10 @@ async function loadIndexOrCreate(): Promise<GardenIndex> {
 export async function generateSlug(title: string, date = new Date()): Promise<string> {
   const allMeta = await pullAllPostMeta()
   const base = buildDatedSlug(title, date)
-  return ensureUniqueSlug(base, allMeta.map((meta) => meta.slug))
+  return ensureUniqueSlug(
+    base,
+    allMeta.map((meta) => meta.slug),
+  )
 }
 
 async function storeIndexAndFeed(nextIndex: GardenIndex): Promise<void> {
@@ -101,13 +102,7 @@ export async function unpublishPost(slug: string): Promise<void> {
 }
 
 export async function deletePost(slug: string): Promise<void> {
-  const existingMeta = await pullPostMeta(slug)
-  if (existingMeta) {
-    const deletedMeta = markMetaDeleted(existingMeta)
-    await storePostMeta(deletedMeta)
-  }
-
-  await removePostMarkdown(slug, existingMeta?.mediaType)
+  await removePostMarkdown(slug, undefined)
   await removePostMeta(slug)
 
   const index = await loadIndexOrCreate()
@@ -119,11 +114,11 @@ export async function rebuildIndex(): Promise<void> {
   const mediaIndex = await pullMediaIndex()
   if (mediaIndex && mediaIndex.items.length > 0) {
     const reResolved = await Promise.all(
-      mediaIndex.items.map(async (item) => ({ item, newUrl: await resolvePublicMediaUrl(item.contentPath) }))
+      mediaIndex.items.map(async (item) => ({ item, newUrl: await resolvePublicMediaUrl(item.contentPath) })),
     )
     const changed = reResolved.filter(({ item, newUrl }) => newUrl !== null && newUrl !== item.resolvedUrl)
     if (changed.length > 0) {
-      const replacements = new Map(changed.map(({ item, newUrl }) => [item.resolvedUrl, newUrl!]))
+      const replacements = new Map(changed.map(({ item, newUrl }) => [item.resolvedUrl, newUrl as string]))
       const allMetaForMedia = await pullAllPostMeta()
       await Promise.all(
         allMetaForMedia.map(async (meta) => {
@@ -132,7 +127,7 @@ export async function rebuildIndex(): Promise<void> {
           let rewritten = content
           for (const [oldUrl, newUrl] of replacements) rewritten = rewritten.split(oldUrl).join(newUrl)
           if (rewritten !== content) await storePostMarkdown(meta.slug, rewritten, meta.mediaType)
-        })
+        }),
       )
       const updatedItems = mediaIndex.items.map((item) => {
         const newUrl = replacements.get(item.resolvedUrl)
@@ -153,16 +148,29 @@ export async function rebuildIndex(): Promise<void> {
   const publishedWithExistence = await Promise.all(
     allMeta
       .filter((meta) => meta.status === 'published' && Boolean(meta.publishedAt))
-      .map(async (meta) => ({ meta, exists: await markdownExists(meta.slug, meta.mediaType), contentUrl: await resolvePublicPostUrl(meta.slug, meta.mediaType) })),
+      .map(async (meta) => ({
+        meta,
+        exists: await markdownExists(meta.slug, meta.mediaType),
+        contentUrl: await resolvePublicPostUrl(meta.slug, meta.mediaType),
+      })),
   )
 
-  const validMeta = publishedWithExistence.filter((item) => item.exists && Boolean(item.contentUrl)).map((item) => item.meta)
+  const validMeta = publishedWithExistence
+    .filter((item) => item.exists && Boolean(item.contentUrl))
+    .map((item) => item.meta)
   const contentUrlMap = new Map(publishedWithExistence.map((item) => [item.meta.slug, item.contentUrl ?? null]))
 
   const existingIndex = await pullIndex()
   const urlPrefix = existingIndex?.urlPrefix
   const urlEncoding = existingIndex?.urlEncoding
-  const nextIndex = rebuildIndexFromPublishedMeta(validMeta, (slug) => contentUrlMap.get(slug) ?? null, title, tagline, urlPrefix, urlEncoding)
+  const nextIndex = rebuildIndexFromPublishedMeta(
+    validMeta,
+    (slug) => contentUrlMap.get(slug) ?? null,
+    title,
+    tagline,
+    urlPrefix,
+    urlEncoding,
+  )
   await storeIndexAndFeed(nextIndex)
 
   const publicIndexUrl = await resolvePublicIndexUrl()
@@ -210,11 +218,13 @@ export async function deleteMedia(contentPath: string): Promise<void> {
   await storeMediaIndex({ ...existing, items: existing.items.filter((i) => i.contentPath !== contentPath) })
 }
 
-export async function saveSiteSettings(title: string, tagline: string, urlPrefix: string, urlEncoding: 'e1' | 'e2'): Promise<void> {
-  await Promise.all([
-    storeGardenSetting('title', title),
-    storeGardenSetting('tagline', tagline),
-  ])
+export async function saveSiteSettings(
+  title: string,
+  tagline: string,
+  urlPrefix: string,
+  urlEncoding: 'e1' | 'e2',
+): Promise<void> {
+  await Promise.all([storeGardenSetting('title', title), storeGardenSetting('tagline', tagline)])
 
   const index = await loadIndexOrCreate()
   const nextIndex: GardenIndex = {

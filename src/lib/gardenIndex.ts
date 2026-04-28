@@ -34,7 +34,11 @@ export function sortPostsDescendingByPublishedAt(posts: GardenIndexEntry[]): Gar
   return [...posts].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
 }
 
-export function upsertIndexEntry(index: GardenIndex, entry: GardenIndexEntry, now = new Date().toISOString()): GardenIndex {
+export function upsertIndexEntry(
+  index: GardenIndex,
+  entry: GardenIndexEntry,
+  now = new Date().toISOString(),
+): GardenIndex {
   const filtered = index.posts.filter((post) => post.slug !== entry.slug)
   const posts = sortPostsDescendingByPublishedAt([...filtered, entry])
 
@@ -135,14 +139,18 @@ function escapeXml(s: string): string {
 }
 
 export function toAtomFeed(index: GardenIndex, feedUrl?: string): string {
-  const entries = index.posts.map((post) => `  <entry>
+  const entries = index.posts
+    .map(
+      (post) => `  <entry>
     <title>${escapeXml(post.title)}</title>
     <link href="${escapeXml(post.contentUrl)}" />
     <id>${escapeXml(post.contentUrl)}</id>
     <published>${post.publishedAt}</published>
     <updated>${post.updatedAt}</updated>
     <summary>${escapeXml(post.excerpt)}</summary>
-  </entry>`).join('\n')
+  </entry>`,
+    )
+    .join('\n')
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">

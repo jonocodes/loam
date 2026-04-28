@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mediaTypeToExt, inferMediaType } from '../lib/mediaType'
+import { inferMediaType, mediaTypeToExt } from '../lib/mediaType'
 
 describe('mediaTypeToExt', () => {
   it('maps text/html to html', () => {

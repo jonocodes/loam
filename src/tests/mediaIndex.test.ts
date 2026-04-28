@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { upsertMediaItem } from '../lib/gardenIndex'
-import { MediaIndexSchema, MediaItemSchema } from '../lib/schema'
 import type { MediaIndex, MediaItem } from '../lib/schema'
+import { MediaIndexSchema, MediaItemSchema } from '../lib/schema'
 
 const baseItem: MediaItem = {
   filename: 'photo.jpg',

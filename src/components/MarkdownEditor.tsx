@@ -1,18 +1,12 @@
-import { useEffect, useRef } from 'react'
-import { EditorView, keymap } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
-import { Table } from '@lezer/markdown'
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
-import {
-  editorTheme,
-  imageField,
-  linkPlugin,
-  livePreviewPlugin,
-  markdownStylePlugin,
-} from 'codemirror-live-markdown'
+import { EditorState } from '@codemirror/state'
+import { EditorView, keymap } from '@codemirror/view'
+import { Table } from '@lezer/markdown'
+import { editorTheme, imageField, linkPlugin, livePreviewPlugin, markdownStylePlugin } from 'codemirror-live-markdown'
+import { useEffect, useRef } from 'react'
 
 interface Props {
   value: string
@@ -49,19 +43,18 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
 
     const readOnlyExtension = (EditorState as { readOnly?: { of: (value: boolean) => unknown } }).readOnly?.of(readOnly)
 
-    const languageExtensions = language === 'markdown'
-      ? [
-          markdown({ extensions: [Table], codeLanguages: languages }),
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          livePreviewPlugin,
-          markdownStylePlugin,
-          linkPlugin(),
-          imageField(),
-          editorTheme,
-        ]
-      : [
-          syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        ]
+    const languageExtensions =
+      language === 'markdown'
+        ? [
+            markdown({ extensions: [Table], codeLanguages: languages }),
+            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            livePreviewPlugin,
+            markdownStylePlugin,
+            linkPlugin(),
+            imageField(),
+            editorTheme,
+          ]
+        : [syntaxHighlighting(defaultHighlightStyle, { fallback: true })]
 
     const state = EditorState.create({
       doc: value,
@@ -87,7 +80,7 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
       view.destroy()
       viewRef.current = null
     }
-  }, [readOnly, language])
+  }, [readOnly, language, value])
 
   useEffect(() => {
     const view = viewRef.current

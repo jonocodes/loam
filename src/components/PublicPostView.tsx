@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MarkdownViewer } from './MarkdownViewer'
+import type { UrlEncoding } from '../lib/indexToken'
 import { navigate } from '../lib/navigate'
-import { encodeIndexToken } from '../lib/indexToken'
+import { buildBackLinkUrl } from '../lib/publicUrls'
 import { getPublicIndexUrl, inferMediaType } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
-import type { UrlEncoding } from '../lib/indexToken'
+import { MarkdownViewer } from './MarkdownViewer'
 
 interface Props {
   postSlug: string
@@ -94,54 +94,65 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
         <div className="mb-2">
           <a
             className="text-sm text-slate-700 underline underline-offset-4"
-            href={(() => {
-              if (indexBasePath) return indexBasePath
-              if (window.location.pathname !== '/') return indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/'
-              return new URLSearchParams(window.location.search).has('index') && indexUrl
-                ? `/?index=${encodeURIComponent(indexUrl)}`
-                : '/'
-            })()}
+            href={buildBackLinkUrl(indexUrl, indexBasePath ?? null, urlEncoding)}
             onClick={(e) => {
               e.preventDefault()
-              const href = (() => {
-                if (indexBasePath) return indexBasePath
-                if (window.location.pathname !== '/') return indexUrl ? `/p/${encodeIndexToken(indexUrl, urlEncoding)}` : '/'
-                return new URLSearchParams(window.location.search).has('index') && indexUrl
-                  ? `/?index=${encodeURIComponent(indexUrl)}`
-                  : '/'
-              })()
-              navigate(href)
+              navigate(buildBackLinkUrl(indexUrl, indexBasePath ?? null, urlEncoding))
             }}
           >
             ← Back to home
           </a>
         </div>
         <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{post?.title ?? postSlug}</h1>
-        {post?.updatedAt ? <p className="mt-2 text-xs text-slate-500">Updated {new Date(post.updatedAt).toLocaleString()}</p> : null}
+        {post?.updatedAt ? (
+          <p className="mt-2 text-xs text-slate-500">Updated {new Date(post.updatedAt).toLocaleString()}</p>
+        ) : null}
         {post?.tags && post.tags.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1">
             {post.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">{tag}</span>
+              <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                {tag}
+              </span>
             ))}
           </div>
         ) : null}
       </header>
       {loading ? (
         <p className="text-slate-500">Loading...</p>
-      ) : (() => {
-        const effectiveMediaType = inferMediaType(post?.mediaType, post?.contentUrl)
-        if (effectiveMediaType === 'text/html') {
-          return <div className="markdown-body" dangerouslySetInnerHTML={{ __html: body }} />
-        }
-        if (effectiveMediaType === 'text/plain') {
-          return <pre className="overflow-x-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-900">{body}</pre>
-        }
-        return <MarkdownViewer value={body} />
-      })()}
+      ) : (
+        (() => {
+          const effectiveMediaType = inferMediaType(post?.mediaType, post?.contentUrl)
+          if (effectiveMediaType === 'text/html') {
+            return (
+              <iframe
+                sandbox="allow-same-origin"
+                srcDoc={body}
+                className="w-full min-h-[40rem] border-0 rounded"
+                title="Post content"
+              />
+            )
+          }
+          if (effectiveMediaType === 'text/plain') {
+            return (
+              <pre className="overflow-x-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-900">
+                {body}
+              </pre>
+            )
+          }
+          return <MarkdownViewer value={body} />
+        })()
+      )}
 
       <footer className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
         Published with{' '}
-        <a className="underline underline-offset-4 hover:text-slate-600" href="/" onClick={(e) => { e.preventDefault(); navigate('/') }}>
+        <a
+          className="underline underline-offset-4 hover:text-slate-600"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault()
+            navigate('/')
+          }}
+        >
           Loam
         </a>
       </footer>
