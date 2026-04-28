@@ -3,8 +3,8 @@ import { ConnectWidget } from './components/ConnectWidget'
 import { MarkdownEditor } from './components/MarkdownEditor'
 import { MediaPanel } from './components/MediaPanel'
 import { SettingsView } from './components/SettingsView'
-import { StackLayout, useStackTheme } from './components/StackLayout'
 import type { StackTheme } from './components/StackLayout'
+import { StackLayout, useStackTheme } from './components/StackLayout'
 import { deletePost, generateSlug, publishPost, unpublishPost } from './lib/gardenService'
 import { parseMarkdownToPost } from './lib/markdown'
 import { buildPublicHomeUrl, buildPublicPostUrl } from './lib/publicUrls'
@@ -112,14 +112,22 @@ function AdminSidebar({
     if (sectionItems.length === 0) return null
     return (
       <div style={{ marginBottom: 4 }}>
-        <div style={{ padding: '6px 14px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase' as const }}>
+        <div
+          style={{ padding: '6px 14px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              color: theme.dim,
+              fontFamily: MONO,
+              letterSpacing: 0.8,
+              textTransform: 'uppercase' as const,
+            }}
+          >
             {label}
           </span>
         </div>
-        <div style={{ padding: '0 6px' }}>
-          {sectionItems.map((item) => renderPostButton(item))}
-        </div>
+        <div style={{ padding: '0 6px' }}>{sectionItems.map((item) => renderPostButton(item))}</div>
       </div>
     )
   }
@@ -127,7 +135,16 @@ function AdminSidebar({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       {/* Tabs */}
-      <div style={{ padding: '4px 6px', display: 'flex', gap: 2, borderBottom: `1px solid ${theme.rule}`, marginBottom: 4, flexShrink: 0 }}>
+      <div
+        style={{
+          padding: '4px 6px',
+          display: 'flex',
+          gap: 2,
+          borderBottom: `1px solid ${theme.rule}`,
+          marginBottom: 4,
+          flexShrink: 0,
+        }}
+      >
         {(['posts', 'media'] as const).map((tab) => (
           <button
             key={tab}
@@ -215,9 +232,10 @@ function AdminSidebar({
               <div style={{ padding: '8px 14px', color: theme.dim, fontSize: 12 }}>No posts with this tag.</div>
             )}
             {renderSection('welcome', welcomeItems)}
-            {welcomeItems.length > 0 && (pickItems.length > 0 || writingItems.length > 0 || documentItems.length > 0) && (
-              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-            )}
+            {welcomeItems.length > 0 &&
+              (pickItems.length > 0 || writingItems.length > 0 || documentItems.length > 0) && (
+                <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
+              )}
             {renderSection('★ picks', pickItems)}
             {pickItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0) && (
               <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
@@ -335,11 +353,35 @@ interface EditorProps {
 }
 
 function AdminEditor({
-  title, setTitle, slug, setSlug, excerpt, setExcerpt,
-  tagsInput, setTagsInput, postDate, setPostDate,
-  mediaType, setMediaType, postType, setPostType, favorite, setFavorite, body, setBody,
-  status, busy, message, error, connected, publicPostPageUrl,
-  onBack, onSave, onPublish, onUnpublish, onDelete,
+  title,
+  setTitle,
+  slug,
+  setSlug,
+  excerpt,
+  setExcerpt,
+  tagsInput,
+  setTagsInput,
+  postDate,
+  setPostDate,
+  mediaType,
+  setMediaType,
+  postType,
+  setPostType,
+  favorite,
+  setFavorite,
+  body,
+  setBody,
+  status,
+  busy,
+  message,
+  error,
+  connected,
+  publicPostPageUrl,
+  onBack,
+  onSave,
+  onPublish,
+  onUnpublish,
+  onDelete,
 }: EditorProps) {
   const theme = useStackTheme()
   const [metaOpen, setMetaOpen] = useState(false)
@@ -385,11 +427,7 @@ function AdminEditor({
 
         <div>
           <div style={labelStyle}>excerpt</div>
-          <input
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            style={fieldStyle}
-          />
+          <input value={excerpt} onChange={(e) => setExcerpt(e.target.value)} style={fieldStyle} />
         </div>
 
         <div>
@@ -416,7 +454,17 @@ function AdminEditor({
           <div style={labelStyle}>format</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {(['text/markdown', 'text/html', 'text/plain'] as const).map((v) => (
-              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: mediaType === v ? theme.ink : theme.dim }}>
+              <label
+                key={v}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  color: mediaType === v ? theme.ink : theme.dim,
+                }}
+              >
                 <input
                   type="radio"
                   name="mediaType"
@@ -435,7 +483,17 @@ function AdminEditor({
           <div style={labelStyle}>type</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {(['writing', 'document', 'welcome'] as const).map((v) => (
-              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: postType === v ? theme.ink : theme.dim }}>
+              <label
+                key={v}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  color: postType === v ? theme.ink : theme.dim,
+                }}
+              >
                 <input
                   type="radio"
                   name="postType"
@@ -458,9 +516,7 @@ function AdminEditor({
               onChange={(e) => setFavorite(e.target.checked)}
               style={{ accentColor: theme.accent, width: 13, height: 13 }}
             />
-            <span style={{ fontSize: 11, color: favorite ? theme.ink : theme.dim, fontFamily: MONO }}>
-              ★ pick
-            </span>
+            <span style={{ fontSize: 11, color: favorite ? theme.ink : theme.dim, fontFamily: MONO }}>★ pick</span>
           </label>
         </div>
 
@@ -486,9 +542,15 @@ function AdminEditor({
               target="_blank"
               rel="noreferrer"
               style={{
-                display: 'block', textAlign: 'center', fontSize: 11,
-                color: theme.accent, textDecoration: 'none', fontFamily: MONO,
-                padding: '4px 0', borderTop: `1px solid ${theme.rule}`, marginTop: 2,
+                display: 'block',
+                textAlign: 'center',
+                fontSize: 11,
+                color: theme.accent,
+                textDecoration: 'none',
+                fontFamily: MONO,
+                padding: '4px 0',
+                borderTop: `1px solid ${theme.rule}`,
+                marginTop: 2,
               }}
               onClick={() => setMetaOpen(false)}
             >
@@ -497,12 +559,8 @@ function AdminEditor({
           )}
         </div>
 
-        {message && (
-          <div style={{ fontSize: 11, color: theme.accent2, fontFamily: MONO }}>{message}</div>
-        )}
-        {error && (
-          <div style={{ fontSize: 11, color: '#e06c75', fontFamily: MONO }}>{error}</div>
-        )}
+        {message && <div style={{ fontSize: 11, color: theme.accent2, fontFamily: MONO }}>{message}</div>}
+        {error && <div style={{ fontSize: 11, color: '#e06c75', fontFamily: MONO }}>{error}</div>}
       </>
     )
   }
@@ -520,9 +578,14 @@ function AdminEditor({
             className="stack-menu-btn"
             onClick={onBack}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: theme.dim, padding: '0 0 12px', fontFamily: MONO,
-              fontSize: 11, textAlign: 'left',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: theme.dim,
+              padding: '0 0 12px',
+              fontFamily: MONO,
+              fontSize: 11,
+              textAlign: 'left',
             }}
           >
             ← posts
@@ -532,9 +595,14 @@ function AdminEditor({
             className="stack-menu-btn"
             onClick={() => setMetaOpen((open) => !open)}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: theme.dim, padding: '0 0 12px', fontFamily: MONO,
-              fontSize: 11, textAlign: 'right',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: theme.dim,
+              padding: '0 0 12px',
+              fontFamily: MONO,
+              fontSize: 11,
+              textAlign: 'right',
             }}
           >
             {metaOpen ? 'close' : 'meta'}
@@ -547,22 +615,49 @@ function AdminEditor({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Untitled"
           style={{
-            width: '100%', background: 'none', border: 'none', outline: 'none',
-            fontSize: 22, fontWeight: 600, color: theme.ink, fontFamily: 'inherit',
-            padding: 0, marginBottom: 14, letterSpacing: -0.3,
+            width: '100%',
+            background: 'none',
+            border: 'none',
+            outline: 'none',
+            fontSize: 22,
+            fontWeight: 600,
+            color: theme.ink,
+            fontFamily: 'inherit',
+            padding: 0,
+            marginBottom: 14,
+            letterSpacing: -0.3,
           }}
         />
 
         {/* Metadata bar */}
-        <div style={{
-          fontSize: 11, color: theme.dim, marginBottom: 14,
-          fontFamily: MONO, borderBottom: `1px solid ${theme.rule}`, paddingBottom: 10,
-          display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
-        }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: theme.dim,
+            marginBottom: 14,
+            fontFamily: MONO,
+            borderBottom: `1px solid ${theme.rule}`,
+            paddingBottom: 10,
+            display: 'flex',
+            gap: 12,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
           <span>---</span>
-          <span style={{ color: theme.dim }}>status: <span style={{ color: status === 'published' ? theme.accent2 : theme.ink }}>{status}</span></span>
-          {slug && <span style={{ color: theme.dim }}>slug: <span style={{ color: theme.ink }}>{slug}</span></span>}
-          {tagsInput && <span style={{ color: theme.dim }}>tags: <span style={{ color: theme.ink }}>{tagsInput}</span></span>}
+          <span style={{ color: theme.dim }}>
+            status: <span style={{ color: status === 'published' ? theme.accent2 : theme.ink }}>{status}</span>
+          </span>
+          {slug && (
+            <span style={{ color: theme.dim }}>
+              slug: <span style={{ color: theme.ink }}>{slug}</span>
+            </span>
+          )}
+          {tagsInput && (
+            <span style={{ color: theme.dim }}>
+              tags: <span style={{ color: theme.ink }}>{tagsInput}</span>
+            </span>
+          )}
           <span>---</span>
         </div>
 
@@ -577,14 +672,19 @@ function AdminEditor({
       </div>
 
       {/* Right metadata panel */}
-      <div style={{
-        width: 240, flexShrink: 0,
-        borderLeft: `1px solid ${theme.rule}`,
-        padding: '20px 18px',
-        background: theme.panel,
-        flexDirection: 'column', gap: 14,
-        overflowY: 'auto',
-      }} className="stack-meta-panel">
+      <div
+        style={{
+          width: 240,
+          flexShrink: 0,
+          borderLeft: `1px solid ${theme.rule}`,
+          padding: '20px 18px',
+          background: theme.panel,
+          flexDirection: 'column',
+          gap: 14,
+          overflowY: 'auto',
+        }}
+        className="stack-meta-panel"
+      >
         {renderMetaPanel()}
       </div>
 
@@ -593,7 +693,9 @@ function AdminEditor({
         style={{ background: theme.panel, borderTop: `1px solid ${theme.rule}` }}
       >
         <div style={{ padding: '12px 14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 11, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+          <span
+            style={{ fontSize: 11, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase' }}
+          >
             metadata
           </span>
           <button
@@ -612,7 +714,16 @@ function AdminEditor({
             close
           </button>
         </div>
-        <div style={{ padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', height: 'calc(100% - 36px)' }}>
+        <div
+          style={{
+            padding: '10px 14px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+            overflowY: 'auto',
+            height: 'calc(100% - 36px)',
+          }}
+        >
           {renderMetaPanel(true)}
         </div>
       </div>
@@ -621,7 +732,12 @@ function AdminEditor({
 }
 
 function ActionBtn({
-  theme, onClick, disabled, children, primary, danger,
+  theme,
+  onClick,
+  disabled,
+  children,
+  primary,
+  danger,
 }: {
   theme: StackTheme
   onClick: () => void
@@ -671,7 +787,9 @@ export function App() {
   const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [status, setStatus] = useState<GardenPostMeta['status']>('draft')
   const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
-  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
+  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>(
+    'text/markdown',
+  )
   const [postType, setPostType] = useState<'writing' | 'document' | 'welcome'>('writing')
   const [favorite, setFavorite] = useState(false)
   const [tagsInput, setTagsInput] = useState<string>('')
@@ -701,26 +819,53 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false
-    const connectedHandler = () => { if (!cancelled) setConnected(true) }
-    const disconnectedHandler = () => { if (!cancelled) { setConnected(false); clearCloudSharingCache() } }
-    const popStateHandler = () => { if (!cancelled) setPath(window.location.pathname + window.location.search) }
+    const connectedHandler = () => {
+      if (!cancelled) setConnected(true)
+    }
+    const disconnectedHandler = () => {
+      if (!cancelled) {
+        setConnected(false)
+        clearCloudSharingCache()
+      }
+    }
+    const popStateHandler = () => {
+      if (!cancelled) setPath(window.location.pathname + window.location.search)
+    }
     onConnected(connectedHandler)
     onDisconnected(disconnectedHandler)
     window.addEventListener('popstate', popStateHandler)
 
-    void fetchWellKnownIndexUrl().then((u) => { if (!cancelled) setWellKnownIndexUrl(u) })
+    void fetchWellKnownIndexUrl().then((u) => {
+      if (!cancelled) setWellKnownIndexUrl(u)
+    })
     void pullAllPostMeta()
-      .then((all) => { if (!cancelled) setItems(sortByUpdatedDescending(all)) })
-      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)) })
-    void pullGardenSetting('title').then((t) => { if (!cancelled && t) document.title = t })
-    void pullIndex().then((index) => { if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix) })
+      .then((all) => {
+        if (!cancelled) setItems(sortByUpdatedDescending(all))
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
+    void pullGardenSetting('title').then((t) => {
+      if (!cancelled && t) document.title = t
+    })
+    void pullIndex().then((index) => {
+      if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+    })
 
-    return () => { cancelled = true; window.removeEventListener('popstate', popStateHandler) }
+    return () => {
+      cancelled = true
+      window.removeEventListener('popstate', popStateHandler)
+    }
   }, [])
 
   useEffect(() => {
-    if (!connected) { setPublicIndexUrl(null); return }
-    void loadPublicIndexUrl().then(setPublicIndexUrl).catch(() => setPublicIndexUrl(null))
+    if (!connected) {
+      setPublicIndexUrl(null)
+      return
+    }
+    void loadPublicIndexUrl()
+      .then(setPublicIndexUrl)
+      .catch(() => setPublicIndexUrl(null))
   }, [connected])
 
   function loadPost(meta: GardenPostMeta): void {
@@ -740,7 +885,9 @@ export function App() {
     setError('')
     void pullPostMarkdown(meta.slug, meta.mediaType)
       .then((content) => setBody(content ?? ''))
-      .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : String(err))
+      })
   }
 
   function clearEditor(): void {
@@ -789,11 +936,13 @@ export function App() {
     setMessage('')
     try {
       const now = new Date().toISOString()
-      const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
+      const tags = tagsInput
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
       const parsed = parseMarkdownToPost(body)
-      const resolvedTitle = mediaType === 'text/markdown'
-        ? title.trim() || parsed.title || 'Untitled'
-        : title.trim() || 'Untitled'
+      const resolvedTitle =
+        mediaType === 'text/markdown' ? title.trim() || parsed.title || 'Untitled' : title.trim() || 'Untitled'
       const resolvedExcerpt = excerpt.trim() || parsed.excerpt
       const rawBody = mediaType === 'text/markdown' ? parsed.body : body.trim()
       let parsedBody = rawBody
@@ -801,7 +950,11 @@ export function App() {
         parsedBody = parsedBody.split(blobUrl).join(resolvedUrl)
       }
       const resolvedSlug = slug.trim()
-        ? slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
+        ? slug
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-]+/g, '-')
+            .replace(/^-+|-+$/g, '')
         : await generateSlug(resolvedTitle || 'untitled')
 
       const slugChanged = originalSlug !== null && resolvedSlug !== originalSlug
@@ -894,7 +1047,7 @@ export function App() {
     <>
       <ConnectWidget />
       <StackLayout
-        currentSlug={view === 'settings' ? undefined : currentSlug ?? undefined}
+        currentSlug={view === 'settings' ? undefined : (currentSlug ?? undefined)}
         viewLabel={viewLabel}
         basePath={breadcrumbBase}
         sidebarContent={
@@ -907,8 +1060,14 @@ export function App() {
             connected={connected}
             sidebarTab={sidebarTab}
             setSidebarTab={setSidebarTab}
-            onNew={() => { clearEditor(); setView('posts') }}
-            onSelect={(item) => { loadPost(item); setView('posts') }}
+            onNew={() => {
+              clearEditor()
+              setView('posts')
+            }}
+            onSelect={(item) => {
+              loadPost(item)
+              setView('posts')
+            }}
             onSettings={() => setView('settings')}
             publicHomePageUrl={publicHomePageUrl}
             view={view}
@@ -919,15 +1078,24 @@ export function App() {
           <SettingsView onSave={(prefix) => setUrlPrefix(prefix)} />
         ) : (
           <AdminEditor
-            title={title} setTitle={setTitle}
-            slug={slug} setSlug={setSlug}
-            excerpt={excerpt} setExcerpt={setExcerpt}
-            tagsInput={tagsInput} setTagsInput={setTagsInput}
-            postDate={postDate} setPostDate={setPostDate}
-            mediaType={mediaType} setMediaType={setMediaType}
-            postType={postType} setPostType={setPostType}
-            favorite={favorite} setFavorite={setFavorite}
-            body={body} setBody={setBody}
+            title={title}
+            setTitle={setTitle}
+            slug={slug}
+            setSlug={setSlug}
+            excerpt={excerpt}
+            setExcerpt={setExcerpt}
+            tagsInput={tagsInput}
+            setTagsInput={setTagsInput}
+            postDate={postDate}
+            setPostDate={setPostDate}
+            mediaType={mediaType}
+            setMediaType={setMediaType}
+            postType={postType}
+            setPostType={setPostType}
+            favorite={favorite}
+            setFavorite={setFavorite}
+            body={body}
+            setBody={setBody}
             status={status}
             busy={busy}
             message={message}

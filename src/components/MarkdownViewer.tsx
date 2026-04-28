@@ -26,7 +26,8 @@ function handleClick(e: React.MouseEvent<HTMLDivElement>) {
   if (!href || href.includes('://') || href.startsWith('/') || href.startsWith('#') || href.startsWith('mailto:'))
     return
   e.preventDefault()
-  navigate(new URL(href, window.location.href).pathname)
+  const url = new URL(href, window.location.href)
+  navigate(`${url.pathname}${url.search}${url.hash}`)
 }
 
 export function MarkdownViewer({ value }: Props) {

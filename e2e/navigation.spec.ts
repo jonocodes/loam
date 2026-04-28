@@ -1,5 +1,5 @@
-import { test, expect, MOCK_TOKEN, MOCK_BASE } from './fixtures'
 import { encodeIndexToken } from '../src/lib/indexToken'
+import { expect, MOCK_BASE, MOCK_TOKEN, test } from './fixtures'
 
 test.describe('browser history navigation', () => {
   test('navigating between posts does not refetch index.json', async ({ page }) => {
@@ -9,9 +9,16 @@ test.describe('browser history navigation', () => {
     })
 
     await page.goto(`/p/test/${MOCK_TOKEN}`)
-    await page.getByRole('button', { name: /Hello World/i }).first().click()
+    await page
+      .getByRole('button', { name: /Hello World/i })
+      .first()
+      .click()
     await expect(page.getByRole('heading', { name: 'Hello World' }).first()).toBeVisible()
-    await page.locator('.stack-sidebar').getByRole('button', { name: /Second Post/i }).first().click()
+    await page
+      .locator('.stack-sidebar')
+      .getByRole('button', { name: /Second Post/i })
+      .first()
+      .click()
     await expect(page.getByRole('heading', { name: 'Second Post' }).first()).toBeVisible()
 
     await expect.poll(() => indexRequests).toBe(1)
@@ -19,7 +26,10 @@ test.describe('browser history navigation', () => {
 
   test('back button returns to index after navigating to post', async ({ page }) => {
     await page.goto(`/p/test/${MOCK_TOKEN}`)
-    await page.getByRole('button', { name: /Hello World/i }).first().click()
+    await page
+      .getByRole('button', { name: /Hello World/i })
+      .first()
+      .click()
     await expect(page.getByRole('heading', { name: 'Hello World' }).first()).toBeVisible()
     await page.goBack()
     await expect(page.getByRole('heading', { name: 'All posts' })).toBeVisible()
@@ -27,7 +37,10 @@ test.describe('browser history navigation', () => {
 
   test('forward button restores post after going back', async ({ page }) => {
     await page.goto(`/p/test/${MOCK_TOKEN}`)
-    await page.getByRole('button', { name: /Hello World/i }).first().click()
+    await page
+      .getByRole('button', { name: /Hello World/i })
+      .first()
+      .click()
     await expect(page.getByRole('heading', { name: 'Hello World' }).first()).toBeVisible()
     await page.goBack()
     await expect(page.getByRole('heading', { name: 'All posts' })).toBeVisible()

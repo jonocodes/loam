@@ -1,4 +1,4 @@
-import { test, expect, MOCK_TOKEN } from './fixtures'
+import { expect, MOCK_TOKEN, test } from './fixtures'
 
 test.describe('cross-linking between posts', () => {
   test('relative slug link in post body navigates via SPA', async ({ page }) => {
@@ -23,7 +23,9 @@ test.describe('cross-linking between posts', () => {
 
     // Track navigation events — a SPA navigate won't fire a full load
     let fullReload = false
-    page.on('load', () => { fullReload = true })
+    page.on('load', () => {
+      fullReload = true
+    })
 
     await page.getByRole('link', { name: 'second post' }).click()
     await expect(page.getByRole('heading', { name: 'Second Post' }).first()).toBeVisible()

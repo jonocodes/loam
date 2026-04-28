@@ -17,10 +17,7 @@
     },
     "urlEncoding": {
       "type": "string",
-      "enum": [
-        "e1",
-        "e2"
-      ]
+      "enum": ["e1", "e2"]
     },
     "updatedAt": {
       "type": "string"
@@ -61,25 +58,12 @@
             "type": "string"
           }
         },
-        "required": [
-          "slug",
-          "date",
-          "title",
-          "excerpt",
-          "publishedAt",
-          "updatedAt",
-          "contentUrl"
-        ],
+        "required": ["slug", "date", "title", "excerpt", "publishedAt", "updatedAt", "contentUrl"],
         "additionalProperties": false
       }
     }
   },
-  "required": [
-    "version",
-    "title",
-    "updatedAt",
-    "posts"
-  ],
+  "required": ["version", "title", "updatedAt", "posts"],
   "additionalProperties": false,
   "examples": [
     {
@@ -95,9 +79,7 @@
           "date": "2026-04-20",
           "title": "Hello World",
           "excerpt": "My first post.",
-          "tags": [
-            "intro"
-          ],
+          "tags": ["intro"],
           "publishedAt": "2026-04-20T09:00:00Z",
           "updatedAt": "2026-04-20T09:00:00Z",
           "contentUrl": "https://example.com/public/loam/posts/2026-04-20-hello-world.md"
@@ -107,10 +89,7 @@
           "date": "2026-04-25",
           "title": "On Writing",
           "excerpt": "Some thoughts on writing regularly.",
-          "tags": [
-            "writing",
-            "reflection"
-          ],
+          "tags": ["writing", "reflection"],
           "mediaType": "text/markdown",
           "publishedAt": "2026-04-25T10:00:00Z",
           "updatedAt": "2026-04-25T10:00:00Z",

@@ -1,10 +1,8 @@
-import { test, expect, MOCK_INDEX_URL, MOCK_TOKEN } from './fixtures'
+import { expect, MOCK_INDEX_URL, MOCK_TOKEN, test } from './fixtures'
 
 test.describe('well-known masked domain routing', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/.well-known/loam.json', (route) =>
-      route.fulfill({ json: { indexUrl: MOCK_INDEX_URL } })
-    )
+    await page.route('**/.well-known/loam.json', (route) => route.fulfill({ json: { indexUrl: MOCK_INDEX_URL } }))
   })
 
   test('root path shows public garden when well-known is present', async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect, MOCK_BASE, MOCK_TOKEN, testIndex } from './fixtures'
+import { expect, MOCK_BASE, MOCK_TOKEN, test, testIndex } from './fixtures'
 
 test.describe('public index page', () => {
   test('redirects home to welcome post when one exists', async ({ page }) => {

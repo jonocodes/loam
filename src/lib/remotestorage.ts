@@ -231,8 +231,12 @@ export async function fetchWellKnownIndexUrl(): Promise<string | null> {
 }
 
 export function getGardenSettingsUrl(): string | null {
-  const url = privateClient().getItemURL(SETTINGS_PATH)
-  return typeof url === 'string' ? url : null
+  try {
+    const url = privateClient().getItemURL(SETTINGS_PATH)
+    return typeof url === 'string' ? url : null
+  } catch {
+    return null
+  }
 }
 
 export async function storePostMarkdown(slug: string, content: string, mediaType?: string): Promise<void> {

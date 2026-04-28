@@ -20,10 +20,9 @@ export async function loadPublicIndex(indexUrl: string): Promise<GardenIndex> {
     const data = (await res.json()) as GardenIndex
     indexCache.set(indexUrl, data)
     return data
-  })()
-    .finally(() => {
-      indexRequests.delete(indexUrl)
-    })
+  })().finally(() => {
+    indexRequests.delete(indexUrl)
+  })
 
   indexRequests.set(indexUrl, request)
   return request

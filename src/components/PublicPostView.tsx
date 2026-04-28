@@ -4,8 +4,8 @@ import { getCachedPublicIndex, loadPublicIndex } from '../lib/publicIndexClient'
 import { getPublicIndexUrl, inferMediaType } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 import { MarkdownViewer } from './MarkdownViewer'
-import { StackLayout, useStackTheme } from './StackLayout'
 import type { StackTheme } from './StackLayout'
+import { StackLayout, useStackTheme } from './StackLayout'
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
@@ -196,7 +196,7 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
         let fetchedIndex: GardenIndex | null = null
 
         if (indexUrl) {
-          fetchedIndex = getCachedPublicIndex(indexUrl) ?? await loadPublicIndex(indexUrl)
+          fetchedIndex = getCachedPublicIndex(indexUrl) ?? (await loadPublicIndex(indexUrl))
           if (!cancelled) {
             setIndex(fetchedIndex)
           }
@@ -229,14 +229,8 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
   const mediaType = inferMediaType(post?.mediaType, post?.contentUrl)
 
   return (
-    <StackLayout
-      index={index}
-      indexUrl={indexUrl ?? null}
-      indexBasePath={indexBasePath ?? null}
-      currentSlug={postSlug}
-    >
+    <StackLayout index={index} indexUrl={indexUrl ?? null} indexBasePath={indexBasePath ?? null} currentSlug={postSlug}>
       <PostContent post={post} body={body} loading={loading} error={error} mediaType={mediaType} />
     </StackLayout>
   )
 }
-

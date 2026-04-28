@@ -77,28 +77,31 @@ const postContent: Record<string, { body: string; contentType: string }> = {
 }
 
 type Fixtures = {
-  mockFetch: void
+  mockFetch: undefined
 }
 
 export const test = base.extend<Fixtures>({
-  mockFetch: [async ({ page }, use) => {
-    await page.route(`${MOCK_BASE}/**`, async (route) => {
-      const url = new URL(route.request().url())
+  mockFetch: [
+    async ({ page }, use) => {
+      await page.route(`${MOCK_BASE}/**`, async (route) => {
+        const url = new URL(route.request().url())
 
-      if (url.pathname === '/index.json') {
-        await route.fulfill({ json: testIndex })
-        return
-      }
+        if (url.pathname === '/index.json') {
+          await route.fulfill({ json: testIndex })
+          return
+        }
 
-      const filename = url.pathname.split('/').pop() ?? ''
-      const post = postContent[filename]
-      if (post) {
-        await route.fulfill({ body: post.body, contentType: post.contentType })
-        return
-      }
+        const filename = url.pathname.split('/').pop() ?? ''
+        const post = postContent[filename]
+        if (post) {
+          await route.fulfill({ body: post.body, contentType: post.contentType })
+          return
+        }
 
-      await route.fulfill({ status: 404, body: 'Not found' })
-    })
-    await use()
-  }, { auto: true }],
+        await route.fulfill({ status: 404, body: 'Not found' })
+      })
+      await use()
+    },
+    { auto: true },
+  ],
 })

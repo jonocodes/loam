@@ -118,12 +118,7 @@ export function SettingsView({ onSave }: Props = {}) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={sectionStyle}>
           <span style={labelStyle}>Site title</span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="My Garden"
-            style={fieldStyle}
-          />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My Garden" style={fieldStyle} />
         </div>
 
         <div style={sectionStyle}>
@@ -152,8 +147,23 @@ export function SettingsView({ onSave }: Props = {}) {
         <div style={sectionStyle}>
           <span style={labelStyle}>URL encoding</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {([['e2', 'e2 — Base64 URL-safe (default)'], ['e1', 'e1 — Plain URL encoding']] as const).map(([val, label]) => (
-              <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: urlEncoding === val ? theme.ink : theme.dim }}>
+            {(
+              [
+                ['e2', 'e2 — Base64 URL-safe (default)'],
+                ['e1', 'e1 — Plain URL encoding'],
+              ] as const
+            ).map(([val, label]) => (
+              <label
+                key={val}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: urlEncoding === val ? theme.ink : theme.dim,
+                }}
+              >
                 <input
                   type="radio"
                   name="urlEncoding"
@@ -213,43 +223,118 @@ export function SettingsView({ onSave }: Props = {}) {
         {error && <div style={{ fontSize: 12, color: '#e06c75', fontFamily: MONO }}>{error}</div>}
 
         {/* Public site info */}
-        {publicIndexUrl && (() => {
-          const token = encodeIndexToken(publicIndexUrl, urlEncoding)
-          const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
-          const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
-          return (
-            <div style={{ background: theme.panel2, border: `1px solid ${theme.rule}`, borderRadius: 4, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div>
-                <div style={{ ...labelStyle, marginBottom: 6 }}>your public site</div>
-                <a href={siteUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: theme.accent, textDecoration: 'underline', textUnderlineOffset: 3, wordBreak: 'break-all' }}>{siteUrl}</a>
+        {publicIndexUrl &&
+          (() => {
+            const token = encodeIndexToken(publicIndexUrl, urlEncoding)
+            const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
+            const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
+            return (
+              <div
+                style={{
+                  background: theme.panel2,
+                  border: `1px solid ${theme.rule}`,
+                  borderRadius: 4,
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 6 }}>your public site</div>
+                  <a
+                    href={siteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: theme.accent,
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 3,
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {siteUrl}
+                  </a>
+                </div>
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 6 }}>url-param version (domain masking)</div>
+                  <a
+                    href={maskedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 11,
+                      color: theme.dim,
+                      textDecoration: 'underline',
+                      textUnderlineOffset: 3,
+                      wordBreak: 'break-all',
+                      fontFamily: MONO,
+                    }}
+                  >
+                    {maskedUrl}
+                  </a>
+                </div>
               </div>
-              <div>
-                <div style={{ ...labelStyle, marginBottom: 6 }}>url-param version (domain masking)</div>
-                <a href={maskedUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: theme.dim, textDecoration: 'underline', textUnderlineOffset: 3, wordBreak: 'break-all', fontFamily: MONO }}>{maskedUrl}</a>
-              </div>
-            </div>
-          )
-        })()}
+            )
+          })()}
 
         {/* Dev links */}
         {(publicIndexUrl || publicFeedUrl || publicFeedAtomUrl || gardenSettingsUrl) && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, paddingTop: 12, borderTop: `1px solid ${theme.rule}` }}>
+          <div
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 12, paddingTop: 12, borderTop: `1px solid ${theme.rule}` }}
+          >
             {[
               [publicIndexUrl, 'index.json'],
               [publicFeedUrl, 'feed.json'],
               [publicFeedAtomUrl, 'feed.atom'],
               [gardenSettingsUrl, 'garden.json'],
-            ].filter(([u]) => u).map(([url, label]) => (
-              <a key={label} href={url!} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: theme.dim, textDecoration: 'underline', textUnderlineOffset: 3, fontFamily: MONO }}>
-                {label}
-              </a>
-            ))}
+            ]
+              .flatMap(([url, label]) => (url ? [{ url, label }] : []))
+              .map(({ url, label }) => (
+                <a
+                  key={label}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    fontSize: 11,
+                    color: theme.dim,
+                    textDecoration: 'underline',
+                    textUnderlineOffset: 3,
+                    fontFamily: MONO,
+                  }}
+                >
+                  {label}
+                </a>
+              ))}
           </div>
         )}
 
         {/* Footer */}
-        <div style={{ paddingTop: 12, borderTop: `1px solid ${theme.rule}`, fontSize: 11, color: theme.dim, fontFamily: MONO, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span>powered by <a href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer" style={{ color: theme.accent, textDecoration: 'underline', textUnderlineOffset: 3 }}>loam</a></span>
+        <div
+          style={{
+            paddingTop: 12,
+            borderTop: `1px solid ${theme.rule}`,
+            fontSize: 11,
+            color: theme.dim,
+            fontFamily: MONO,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+          }}
+        >
+          <span>
+            powered by{' '}
+            <a
+              href="https://github.com/jonocodes/loam"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: theme.accent, textDecoration: 'underline', textUnderlineOffset: 3 }}
+            >
+              loam
+            </a>
+          </span>
           <span>deployed {new Date(__BUILD_TIME__).toLocaleString()}</span>
         </div>
       </div>

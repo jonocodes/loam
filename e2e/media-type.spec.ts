@@ -1,4 +1,4 @@
-import { test, expect, MOCK_TOKEN } from './fixtures'
+import { expect, MOCK_TOKEN, test } from './fixtures'
 
 test.describe('media type rendering', () => {
   test('markdown post renders as formatted content', async ({ page }) => {
@@ -33,22 +33,24 @@ test.describe('media type rendering', () => {
           version: 1,
           title: 'Test',
           updatedAt: '2026-04-25T10:00:00Z',
-          posts: [{
-            slug: '2026-04-25-inferred-html',
-            title: 'Inferred HTML',
-            excerpt: 'No mediaType set.',
-            publishedAt: '2026-04-25T10:00:00Z',
-            updatedAt: '2026-04-25T10:00:00Z',
-            contentUrl: 'http://mock.loam.test/posts/inferred.html',
-          }],
+          posts: [
+            {
+              slug: '2026-04-25-inferred-html',
+              title: 'Inferred HTML',
+              excerpt: 'No mediaType set.',
+              publishedAt: '2026-04-25T10:00:00Z',
+              updatedAt: '2026-04-25T10:00:00Z',
+              contentUrl: 'http://mock.loam.test/posts/inferred.html',
+            },
+          ],
         },
-      })
+      }),
     )
     await page.route('http://mock.loam.test/posts/inferred.html', (route) =>
       route.fulfill({
         body: '<p class="inferred-marker">Inferred <strong>HTML</strong></p>',
         contentType: 'text/html',
-      })
+      }),
     )
 
     await page.goto(`/p/test/${MOCK_TOKEN}/2026-04-25-inferred-html`)

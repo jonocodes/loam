@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, readFileSync } from 'fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { GardenIndexSchema } from '../src/lib/schema'
 
 mkdirSync('schema', { recursive: true })
@@ -11,5 +11,3 @@ const schema = {
 }
 
 writeFileSync('schema/index.json', JSON.stringify(schema, null, 2))
-
-console.log('Schema files written to schema/')

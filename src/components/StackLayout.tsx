@@ -1,70 +1,70 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
-import { navigate } from "../lib/navigate";
-import { buildBackLinkUrl, buildPostLinkUrl } from "../lib/publicUrls";
-import type { GardenIndex, GardenIndexEntry } from "../lib/schema";
+import type { CSSProperties, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { navigate } from '../lib/navigate'
+import { buildBackLinkUrl, buildPostLinkUrl } from '../lib/publicUrls'
+import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 
 export type StackTheme = {
-  bg: string;
-  panel: string;
-  panel2: string;
-  ink: string;
-  dim: string;
-  faint: string;
-  accent: string;
-  accent2: string;
-  rule: string;
-  sel: string;
-};
-
-export const DARK: StackTheme = {
-  bg: "#0e1014",
-  panel: "#13161c",
-  panel2: "#191d25",
-  ink: "#dde2ec",
-  dim: "#6b7585",
-  faint: "#2a3140",
-  accent: "#7aa2f7",
-  accent2: "#9ece6a",
-  rule: "#1d222b",
-  sel: "#1f2a3d",
-};
-
-export const LIGHT: StackTheme = {
-  bg: "#fbfbfa",
-  panel: "#f3f3f0",
-  panel2: "#ebebe7",
-  ink: "#1a1c20",
-  dim: "#6f7480",
-  faint: "#d8d8d2",
-  accent: "#3b6dd9",
-  accent2: "#3a6e1d",
-  rule: "#e1e1dc",
-  sel: "#dfe8f7",
-};
-
-export const StackThemeContext = createContext<StackTheme>(DARK);
-
-export function useStackTheme(): StackTheme {
-  return useContext(StackThemeContext);
+  bg: string
+  panel: string
+  panel2: string
+  ink: string
+  dim: string
+  faint: string
+  accent: string
+  accent2: string
+  rule: string
+  sel: string
 }
 
-const MONO = '"JetBrains Mono", ui-monospace, monospace';
+export const DARK: StackTheme = {
+  bg: '#0e1014',
+  panel: '#13161c',
+  panel2: '#191d25',
+  ink: '#dde2ec',
+  dim: '#6b7585',
+  faint: '#2a3140',
+  accent: '#7aa2f7',
+  accent2: '#9ece6a',
+  rule: '#1d222b',
+  sel: '#1f2a3d',
+}
+
+export const LIGHT: StackTheme = {
+  bg: '#fbfbfa',
+  panel: '#f3f3f0',
+  panel2: '#ebebe7',
+  ink: '#1a1c20',
+  dim: '#6f7480',
+  faint: '#d8d8d2',
+  accent: '#3b6dd9',
+  accent2: '#3a6e1d',
+  rule: '#e1e1dc',
+  sel: '#dfe8f7',
+}
+
+export const StackThemeContext = createContext<StackTheme>(DARK)
+
+export function useStackTheme(): StackTheme {
+  return useContext(StackThemeContext)
+}
+
+const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
 interface Props {
-  index?: GardenIndex | null;
-  indexUrl?: string | null;
-  indexBasePath?: string | null;
-  currentSlug?: string | null;
+  index?: GardenIndex | null
+  indexUrl?: string | null
+  indexBasePath?: string | null
+  currentSlug?: string | null
   /** Replaces the default nav+post-list section in the sidebar */
-  sidebarContent?: ReactNode;
+  sidebarContent?: ReactNode
   /** Status bar left label — default "NORMAL" */
-  viewLabel?: string;
+  viewLabel?: string
   /** Breadcrumb base — default "~/{siteTitle}" */
-  basePath?: string;
+  basePath?: string
   /** Filter for post type (writing/document/welcome) — only for sidebar categorization */
-  postTypeFilter?: string | null;
-  children: ReactNode;
+  postTypeFilter?: string | null
+  children: ReactNode
 }
 
 export function StackLayout({
@@ -73,122 +73,122 @@ export function StackLayout({
   indexBasePath,
   currentSlug = null,
   sidebarContent,
-  viewLabel = "NORMAL",
+  viewLabel: _viewLabel = 'NORMAL',
   basePath,
   postTypeFilter,
   children,
 }: Props) {
   const [dark, setDark] = useState(() => {
     try {
-      return localStorage.getItem("loam-theme") !== "light";
+      return localStorage.getItem('loam-theme') !== 'light'
     } catch {
-      return true;
+      return true
     }
-  });
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  })
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const theme = dark ? DARK : LIGHT;
+  const theme = dark ? DARK : LIGHT
 
   useEffect(() => {
     try {
-      localStorage.setItem("loam-theme", dark ? "dark" : "light");
+      localStorage.setItem('loam-theme', dark ? 'dark' : 'light')
     } catch {}
-  }, [dark]);
+  }, [dark])
 
-  const urlEncoding = index?.urlEncoding ?? "e2";
-  const siteLabel = index?.title ?? "garden";
-  const breadcrumbBase = basePath ?? `~/${siteLabel}`;
+  const urlEncoding = index?.urlEncoding ?? 'e2'
+  const siteLabel = index?.title ?? 'garden'
+  const breadcrumbBase = basePath ?? `~/${siteLabel}`
 
   const categorizedPosts = (() => {
-    const all = index?.posts ?? [];
-    const welcome = all.filter((p) => (p.postType ?? "writing") === "welcome");
-    const picks = all.filter((p) => p.favorite).slice(0, 5);
-    const writings = all.filter((p) => (p.postType ?? "writing") === "writing");
-    const documents = all.filter((p) => p.postType === "document");
-    return { welcome, picks, writings, documents };
-  })();
-  const welcomePost = categorizedPosts.welcome[0] ?? null;
+    const all = index?.posts ?? []
+    const welcome = all.filter((p) => (p.postType ?? 'writing') === 'welcome')
+    const picks = all.filter((p) => p.favorite).slice(0, 5)
+    const writings = all.filter((p) => (p.postType ?? 'writing') === 'writing')
+    const documents = all.filter((p) => p.postType === 'document')
+    return { welcome, picks, writings, documents }
+  })()
+  const welcomePost = categorizedPosts.welcome[0] ?? null
 
-  const recentPosts = index?.posts.slice(0, 5) ?? [];
+  const _recentPosts = index?.posts.slice(0, 5) ?? []
 
   const allTags = (() => {
-    if (!index) return [];
-    const s = new Set<string>();
+    if (!index) return []
+    const s = new Set<string>()
     for (const p of index.posts) {
-      for (const t of p.tags ?? []) s.add(t);
+      for (const t of p.tags ?? []) s.add(t)
     }
-    return [...s].sort();
-  })();
+    return [...s].sort()
+  })()
 
   function goIndex() {
-    navigate(buildBackLinkUrl(indexUrl ?? null, indexBasePath ?? null, urlEncoding));
-    setSidebarOpen(false);
+    navigate(buildBackLinkUrl(indexUrl ?? null, indexBasePath ?? null, urlEncoding))
+    setSidebarOpen(false)
   }
 
   function goPost(post: GardenIndexEntry) {
     navigate(buildPostLinkUrl(indexUrl ?? null, indexBasePath ?? null, urlEncoding, post.slug), {
       entry: post,
-    });
-    setSidebarOpen(false);
+    })
+    setSidebarOpen(false)
   }
 
-  function buildTypeFilterUrl(type: "writing" | "document"): string {
-    const base = buildBackLinkUrl(indexUrl ?? null, indexBasePath ?? null, urlEncoding);
-    const [pathname, search = ""] = base.split("?");
-    const params = new URLSearchParams(search);
-    params.set("type", type);
-    return `${pathname}?${params.toString()}`;
+  function buildTypeFilterUrl(type: 'writing' | 'document'): string {
+    const base = buildBackLinkUrl(indexUrl ?? null, indexBasePath ?? null, urlEncoding)
+    const [pathname, search = ''] = base.split('?')
+    const params = new URLSearchParams(search)
+    params.set('type', type)
+    return `${pathname}?${params.toString()}`
   }
 
-  const isIndex = currentSlug == null;
+  const isIndex = currentSlug == null
 
   const cssVars = {
-    "--stack-bg": theme.bg,
-    "--stack-panel": theme.panel,
-    "--stack-panel2": theme.panel2,
-    "--stack-ink": theme.ink,
-    "--stack-dim": theme.dim,
-    "--stack-faint": theme.faint,
-    "--stack-accent": theme.accent,
-    "--stack-accent2": theme.accent2,
-    "--stack-rule": theme.rule,
-    "--stack-sel": theme.sel,
-  } as CSSProperties;
+    '--stack-bg': theme.bg,
+    '--stack-panel': theme.panel,
+    '--stack-panel2': theme.panel2,
+    '--stack-ink': theme.ink,
+    '--stack-dim': theme.dim,
+    '--stack-faint': theme.faint,
+    '--stack-accent': theme.accent,
+    '--stack-accent2': theme.accent2,
+    '--stack-rule': theme.rule,
+    '--stack-sel': theme.sel,
+  } as CSSProperties
 
   return (
     <StackThemeContext.Provider value={theme}>
       <div
-        data-theme={dark ? "dark" : "light"}
+        data-theme={dark ? 'dark' : 'light'}
         style={{
           ...cssVars,
-          width: "100%",
-          height: "100vh",
+          width: '100%',
+          height: '100vh',
           background: theme.bg,
           color: theme.ink,
           fontFamily: '"Inter", system-ui, sans-serif',
           fontSize: 13,
-          display: "flex",
-          overflow: "hidden",
+          display: 'flex',
+          overflow: 'hidden',
         }}
       >
         {sidebarOpen && <div className="stack-overlay" onClick={() => setSidebarOpen(false)} />}
 
         {/* Sidebar */}
         <div
-          className={`stack-sidebar${sidebarOpen ? " open" : ""}`}
+          className={`stack-sidebar${sidebarOpen ? ' open' : ''}`}
           style={{ background: theme.panel, borderRight: `1px solid ${theme.rule}` }}
         >
           {/* Header */}
-          <div style={{ padding: "14px 14px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ padding: '14px 14px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div
               style={{
                 width: 18,
                 height: 18,
                 borderRadius: 3,
                 background: theme.accent,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 color: theme.bg,
                 fontSize: 11,
                 fontWeight: 700,
@@ -203,9 +203,9 @@ export function StackLayout({
                 fontWeight: 600,
                 letterSpacing: -0.1,
                 flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
               {siteLabel}
@@ -214,38 +214,38 @@ export function StackLayout({
               type="button"
               onClick={() => setDark(!dark)}
               style={{
-                background: "none",
-                border: "none",
+                background: 'none',
+                border: 'none',
                 color: theme.dim,
-                cursor: "pointer",
+                cursor: 'pointer',
                 fontSize: 12,
                 padding: 4,
               }}
             >
-              {dark ? "☀" : "☾"}
+              {dark ? '☀' : '☾'}
             </button>
           </div>
 
           {sidebarContent ?? (
             <>
               {/* Nav */}
-              <div style={{ padding: "4px 6px" }}>
+              <div style={{ padding: '4px 6px' }}>
                 <button
                   type="button"
                   onClick={goIndex}
                   style={{
-                    width: "100%",
-                    background: isIndex ? theme.sel : "none",
-                    border: "none",
-                    cursor: "pointer",
+                    width: '100%',
+                    background: isIndex ? theme.sel : 'none',
+                    border: 'none',
+                    cursor: 'pointer',
                     color: theme.ink,
-                    padding: "5px 8px",
-                    fontFamily: "inherit",
+                    padding: '5px 8px',
+                    fontFamily: 'inherit',
                     fontSize: 12,
-                    textAlign: "left",
+                    textAlign: 'left',
                     borderRadius: 3,
-                    display: "flex",
-                    alignItems: "center",
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 8,
                   }}
                 >
@@ -253,17 +253,15 @@ export function StackLayout({
                   All posts
                   <span style={{ flex: 1 }} />
                   {index && (
-                    <span
-                      style={{ color: theme.dim, fontVariantNumeric: "tabular-nums", fontSize: 11 }}
-                    >
+                    <span style={{ color: theme.dim, fontVariantNumeric: 'tabular-nums', fontSize: 11 }}>
                       {index.posts.length}
                     </span>
                   )}
                 </button>
               </div>
 
-              {(!postTypeFilter || postTypeFilter === "welcome") && welcomePost && (
-                <div style={{ padding: "4px 6px" }}>
+              {(!postTypeFilter || postTypeFilter === 'welcome') && welcomePost && (
+                <div style={{ padding: '4px 6px' }}>
                   <SidebarRow
                     theme={theme}
                     active={currentSlug === welcomePost.slug}
@@ -273,12 +271,10 @@ export function StackLayout({
                   />
                 </div>
               )}
-              {(!postTypeFilter || postTypeFilter === "writing" || postTypeFilter === "document") &&
+              {(!postTypeFilter || postTypeFilter === 'writing' || postTypeFilter === 'document') &&
                 categorizedPosts.picks.length > 0 && (
                   <>
-                    {welcomePost && (
-                      <div style={{ height: 1, background: theme.rule, margin: "4px 14px" }} />
-                    )}
+                    {welcomePost && <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />}
                     <SidebarSection theme={theme} title="★ picks">
                       {categorizedPosts.picks.map((p) => (
                         <SidebarRow
@@ -296,7 +292,7 @@ export function StackLayout({
               {!postTypeFilter && categorizedPosts.writings.length > 0 && (
                 <>
                   {(welcomePost || categorizedPosts.picks.length > 0) && (
-                    <div style={{ height: 1, background: theme.rule, margin: "4px 14px" }} />
+                    <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
                   )}
                   <SidebarSection
                     theme={theme}
@@ -305,19 +301,19 @@ export function StackLayout({
                       <button
                         type="button"
                         onClick={() => {
-                          navigate(buildTypeFilterUrl("writing"));
-                          setSidebarOpen(false);
+                          navigate(buildTypeFilterUrl('writing'))
+                          setSidebarOpen(false)
                         }}
                         style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
                           fontSize: 10,
                           color: theme.accent,
                           fontFamily: MONO,
-                          textDecoration: "none",
+                          textDecoration: 'none',
                           letterSpacing: 0,
-                          textTransform: "none",
+                          textTransform: 'none',
                           fontWeight: 500,
                           padding: 0,
                         }}
@@ -342,7 +338,7 @@ export function StackLayout({
               {!postTypeFilter && categorizedPosts.documents.length > 0 && (
                 <>
                   {categorizedPosts.writings.length > 0 && (
-                    <div style={{ height: 1, background: theme.rule, margin: "4px 14px" }} />
+                    <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
                   )}
                   <SidebarSection
                     theme={theme}
@@ -351,19 +347,19 @@ export function StackLayout({
                       <button
                         type="button"
                         onClick={() => {
-                          navigate(buildTypeFilterUrl("document"));
-                          setSidebarOpen(false);
+                          navigate(buildTypeFilterUrl('document'))
+                          setSidebarOpen(false)
                         }}
                         style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
                           fontSize: 10,
                           color: theme.accent,
                           fontFamily: MONO,
-                          textDecoration: "none",
+                          textDecoration: 'none',
                           letterSpacing: 0,
-                          textTransform: "none",
+                          textTransform: 'none',
                           fontWeight: 500,
                           padding: 0,
                         }}
@@ -391,19 +387,11 @@ export function StackLayout({
                     categorizedPosts.picks.length > 0 ||
                     categorizedPosts.writings.length > 0 ||
                     categorizedPosts.documents.length > 0) && (
-                    <div style={{ height: 1, background: theme.rule, margin: "4px 14px" }} />
+                    <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
                   )}
                   <SidebarSection theme={theme} title="tags">
                     {allTags.map((t) => (
-                      <SidebarRow
-                        key={t}
-                        theme={theme}
-                        active={false}
-                        onClick={goIndex}
-                        icon="#"
-                        label={t}
-                        mono
-                      />
+                      <SidebarRow key={t} theme={theme} active={false} onClick={goIndex} icon="#" label={t} mono />
                     ))}
                   </SidebarSection>
                 </>
@@ -417,10 +405,10 @@ export function StackLayout({
           {/* Breadcrumb */}
           <div
             style={{
-              padding: "8px 18px",
+              padding: '8px 18px',
               borderBottom: `1px solid ${theme.rule}`,
-              display: "flex",
-              alignItems: "center",
+              display: 'flex',
+              alignItems: 'center',
               gap: 6,
               fontSize: 11,
               color: theme.dim,
@@ -433,12 +421,12 @@ export function StackLayout({
               className="stack-menu-btn"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
                 color: theme.dim,
-                padding: "0 8px 0 0",
-                fontFamily: "inherit",
+                padding: '0 8px 0 0',
+                fontFamily: 'inherit',
                 fontSize: 14,
               }}
             >
@@ -448,12 +436,12 @@ export function StackLayout({
               type="button"
               onClick={goIndex}
               style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
                 color: theme.dim,
                 padding: 0,
-                fontFamily: "inherit",
+                fontFamily: 'inherit',
                 fontSize: 11,
               }}
             >
@@ -469,11 +457,11 @@ export function StackLayout({
           </div>
 
           {/* Content */}
-          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>{children}</div>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>{children}</div>
         </div>
       </div>
     </StackThemeContext.Provider>
-  );
+  )
 }
 
 function SidebarSection({
@@ -482,22 +470,22 @@ function SidebarSection({
   headerRight,
   children,
 }: {
-  theme: StackTheme;
-  title: string;
-  headerRight?: ReactNode;
-  children: ReactNode;
+  theme: StackTheme
+  title: string
+  headerRight?: ReactNode
+  children: ReactNode
 }) {
   return (
     <div style={{ marginTop: 12 }}>
       <div
         style={{
-          padding: "4px 14px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          padding: '4px 14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           fontSize: 10,
           letterSpacing: 1.4,
-          textTransform: "uppercase",
+          textTransform: 'uppercase',
           color: theme.dim,
           fontWeight: 600,
         }}
@@ -505,9 +493,9 @@ function SidebarSection({
         <span>{title}</span>
         {headerRight}
       </div>
-      <div style={{ padding: "0 6px" }}>{children}</div>
+      <div style={{ padding: '0 6px' }}>{children}</div>
     </div>
-  );
+  )
 }
 
 function SidebarRow({
@@ -518,39 +506,35 @@ function SidebarRow({
   label,
   mono,
 }: {
-  theme: StackTheme;
-  active: boolean;
-  onClick: () => void;
-  icon: string;
-  label: string;
-  mono?: boolean;
+  theme: StackTheme
+  active: boolean
+  onClick: () => void
+  icon: string
+  label: string
+  mono?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
-        display: "flex",
-        alignItems: "center",
+        display: 'flex',
+        alignItems: 'center',
         gap: 8,
-        width: "100%",
-        background: active ? theme.sel : "none",
-        border: "none",
-        cursor: "pointer",
+        width: '100%',
+        background: active ? theme.sel : 'none',
+        border: 'none',
+        cursor: 'pointer',
         color: theme.ink,
-        padding: "4px 8px",
+        padding: '4px 8px',
         borderRadius: 3,
-        fontFamily: mono ? MONO : "inherit",
+        fontFamily: mono ? MONO : 'inherit',
         fontSize: 12,
-        textAlign: "left",
+        textAlign: 'left',
       }}
     >
-      <span style={{ color: theme.dim, width: 12, flexShrink: 0, textAlign: "center" }}>
-        {icon}
-      </span>
-      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {label}
-      </span>
+      <span style={{ color: theme.dim, width: 12, flexShrink: 0, textAlign: 'center' }}>{icon}</span>
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
     </button>
-  );
+  )
 }
