@@ -24,6 +24,8 @@ export function toIndexEntry(meta: GardenPostMeta, contentUrl: string): GardenIn
     excerpt: meta.excerpt,
     ...(meta.tags !== undefined ? { tags: meta.tags } : {}),
     ...(meta.mediaType !== undefined ? { mediaType: meta.mediaType } : {}),
+    ...(meta.postType !== undefined ? { postType: meta.postType } : {}),
+    ...(meta.favorite ? { favorite: true } : {}),
     publishedAt: meta.publishedAt,
     updatedAt: meta.updatedAt,
     contentUrl,

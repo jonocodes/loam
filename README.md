@@ -26,7 +26,10 @@ For more space and control you can host your own remoteStorage server, like [arm
 - Auto title and excerpt parsing from markdown headings
 - Editable slug field, auto-generated from title on first save; renaming renames the underlying files
 - Draft / published / unpublished post states
-- Tags per post (stored in index, no UI yet)
+- Tags per post (comma-separated, filterable in sidebar and public index)
+- Post types: `writing`, `document`, `welcome` — shown as separate sidebar sections
+- Picks: mark any post as a pick; up to 5 shown in a curated section on the public index
+- Image uploads with inline insertion; stored in your cloud storage
 
 **Publishing**
 - One-click publish, unpublish, and delete
@@ -68,6 +71,28 @@ bun run dev
 ```
 
 Open the local URL shown by Vite (usually `http://localhost:5173`).
+
+
+## Docker
+
+Build and run with default settings (remoteStorage only):
+
+```bash
+docker compose up
+```
+
+Open `http://localhost:8080`.
+
+To enable Dropbox or Google Drive, pass the API keys as build-time args:
+
+```bash
+docker build \
+  --build-arg VITE_DROPBOX_APP_KEY=your_key \
+  --build-arg VITE_GOOGLE_CLIENT_ID=your_client_id \
+  -t loam .
+```
+
+> Note: `VITE_*` variables are embedded at build time by Vite, not at runtime. Add them as `ARG` + `ENV` in the Dockerfile if needed, or bake a `.env` file into the image before `bun run build`.
 
 
 ## Routes

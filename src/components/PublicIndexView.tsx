@@ -31,20 +31,32 @@ function IndexContent({
 }) {
   const theme = useStackTheme()
   const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const typeFilter = useMemo(() => {
+    const t = new URLSearchParams(window.location.search).get('type')
+    return t === 'writing' || t === 'document' ? t : null
+  }, [])
 
   const allTags = useMemo(() => {
     if (!index) return []
     const s = new Set<string>()
-    for (const p of index.posts) {
+    const posts = typeFilter ? index.posts.filter((p) => (p.postType ?? 'writing') === typeFilter) : index.posts
+    for (const p of posts) {
       for (const t of p.tags ?? []) s.add(t)
     }
     return [...s].sort()
-  }, [index])
+  }, [index, typeFilter])
 
-  const visiblePosts = useMemo(
-    () => (tagFilter ? (index?.posts.filter((p) => p.tags?.includes(tagFilter)) ?? []) : (index?.posts ?? [])),
-    [index, tagFilter],
+  const pickPosts = useMemo(
+    () => (index?.posts ?? []).filter((p) => p.favorite).slice(0, 5),
+    [index],
   )
+
+  const visiblePosts = useMemo(() => {
+    let posts = index?.posts ?? []
+    if (typeFilter) posts = posts.filter((p) => (p.postType ?? 'writing') === typeFilter)
+    if (tagFilter) posts = posts.filter((p) => p.tags?.includes(tagFilter))
+    return posts
+  }, [index, tagFilter, typeFilter])
 
   if (loading) {
     return (
@@ -64,7 +76,8 @@ function IndexContent({
     <div style={{ padding: '20px 28px 60px' }}>
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 12 }}>
         <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: -0.2, color: theme.ink }}>
-          {tagFilter ? `#${tagFilter}` : 'All posts'}
+          {typeFilter === 'writing' ? 'Writings' : typeFilter === 'document' ? 'Documents' : tagFilter ? `#${tagFilter}` : 'All posts'}
+          {typeFilter && tagFilter ? ` · #${tagFilter}` : ''}
         </h1>
         <span style={{ color: theme.dim, fontSize: 12, fontFamily: MONO }}>{visiblePosts.length} files</span>
       </div>
@@ -90,6 +103,38 @@ function IndexContent({
               #{tag}
             </button>
           ))}
+        </div>
+      )}
+
+      {!typeFilter && !tagFilter && pickPosts.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 }}>
+            ★ picks
+          </div>
+          <div style={{ borderTop: `1px solid ${theme.rule}` }}>
+            {pickPosts.map((post) => {
+              const postUrl = buildPostLinkUrl(indexUrl, indexBasePath ?? null, index.urlEncoding ?? 'e2', post.slug)
+              return (
+                <button
+                  key={post.slug}
+                  type="button"
+                  onClick={() => navigate(postUrl, { entry: post } satisfies { entry: GardenIndexEntry })}
+                  style={{
+                    display: 'flex', gap: 16, alignItems: 'baseline',
+                    width: '100%', padding: '8px 4px',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: theme.ink, borderBottom: `1px solid ${theme.rule}`,
+                    fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{post.title}</div>
+                  <div style={{ fontSize: 12, color: theme.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {post.excerpt}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 

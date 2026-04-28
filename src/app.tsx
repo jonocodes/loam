@@ -68,7 +68,73 @@ function AdminSidebar({
   publicHomePageUrl,
   view,
 }: SidebarProps) {
-  const visibleItems = tagFilter ? items.filter((i) => i.tags?.includes(tagFilter)) : items
+  const taggedItems = tagFilter ? items.filter((i) => i.tags?.includes(tagFilter)) : items
+  const pickItems = items.filter((i) => i.favorite)
+  const writingItems = taggedItems.filter((i) => (i.postType ?? 'writing') === 'writing')
+  const documentItems = taggedItems.filter((i) => i.postType === 'document')
+  const welcomeItems = taggedItems.filter((i) => i.postType === 'welcome')
+  const SECTION_LIMIT = 5
+
+  function renderPostButton(item: GardenPostMeta) {
+    return (
+      <button
+        key={item.slug}
+        type="button"
+        onClick={() => onSelect(item)}
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
+          width: '100%',
+          background: activeSlug === item.slug ? theme.sel : 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: theme.ink,
+          padding: '5px 8px',
+          borderRadius: 3,
+          fontSize: 12,
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ color: theme.dim, width: 12, flexShrink: 0, marginTop: 1 }}>
+          {item.status === 'published' ? '●' : item.status === 'draft' ? '○' : '·'}
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.title || item.slug}
+          </div>
+          <div style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, marginTop: 1 }}>{item.status}</div>
+        </div>
+      </button>
+    )
+  }
+
+  function renderSection(label: string, sectionItems: GardenPostMeta[], viewAllUrl: string | null) {
+    if (sectionItems.length === 0) return null
+    const shown = sectionItems.slice(0, SECTION_LIMIT)
+    return (
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ padding: '6px 14px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase' as const }}>
+            {label}
+          </span>
+          {viewAllUrl && (
+            <a
+              href={viewAllUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 10, color: theme.accent, fontFamily: MONO, textDecoration: 'none' }}
+            >
+              view all ↗
+            </a>
+          )}
+        </div>
+        <div style={{ padding: '0 6px' }}>
+          {shown.map((item) => renderPostButton(item))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -153,44 +219,27 @@ function AdminSidebar({
             </div>
           )}
 
-          {/* Post list */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '0 6px' }}>
-            {visibleItems.length === 0 && (
-              <div style={{ padding: '8px 8px', color: theme.dim, fontSize: 12 }}>
-                {items.length === 0 ? 'No posts yet.' : 'No posts with this tag.'}
-              </div>
+          {/* Post sections */}
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            {items.length === 0 && (
+              <div style={{ padding: '8px 14px', color: theme.dim, fontSize: 12 }}>No posts yet.</div>
             )}
-            {visibleItems.map((item) => (
-              <button
-                key={item.slug}
-                type="button"
-                onClick={() => onSelect(item)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 8,
-                  width: '100%',
-                  background: activeSlug === item.slug ? theme.sel : 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: theme.ink,
-                  padding: '5px 8px',
-                  borderRadius: 3,
-                  fontSize: 12,
-                  textAlign: 'left',
-                }}
-              >
-                <span style={{ color: theme.dim, width: 12, flexShrink: 0, marginTop: 1 }}>
-                  {item.status === 'published' ? '●' : item.status === 'draft' ? '○' : '·'}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.title || item.slug}
-                  </div>
-                  <div style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, marginTop: 1 }}>{item.status}</div>
-                </div>
-              </button>
-            ))}
+            {tagFilter && taggedItems.length === 0 && items.length > 0 && (
+              <div style={{ padding: '8px 14px', color: theme.dim, fontSize: 12 }}>No posts with this tag.</div>
+            )}
+            {renderSection('★ picks', pickItems, null)}
+            {pickItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0 || welcomeItems.length > 0) && (
+              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
+            )}
+            {renderSection('writings', writingItems, publicHomePageUrl ? `${publicHomePageUrl}?type=writing` : null)}
+            {documentItems.length > 0 && writingItems.length > 0 && (
+              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
+            )}
+            {renderSection('documents', documentItems, publicHomePageUrl ? `${publicHomePageUrl}?type=document` : null)}
+            {welcomeItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0) && (
+              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
+            )}
+            {renderSection('welcome', welcomeItems, publicHomePageUrl ? `${publicHomePageUrl}?type=welcome` : null)}
           </div>
 
           {/* Bottom nav */}
@@ -284,6 +333,10 @@ interface EditorProps {
   setPostDate: (v: string) => void
   mediaType: 'text/markdown' | 'text/html' | 'text/plain'
   setMediaType: (v: 'text/markdown' | 'text/html' | 'text/plain') => void
+  postType: 'writing' | 'document' | 'welcome'
+  setPostType: (v: 'writing' | 'document' | 'welcome') => void
+  favorite: boolean
+  setFavorite: (v: boolean) => void
   body: string
   setBody: (v: string) => void
   status: GardenPostMeta['status']
@@ -302,7 +355,7 @@ interface EditorProps {
 function AdminEditor({
   title, setTitle, slug, setSlug, excerpt, setExcerpt,
   tagsInput, setTagsInput, postDate, setPostDate,
-  mediaType, setMediaType, body, setBody,
+  mediaType, setMediaType, postType, setPostType, favorite, setFavorite, body, setBody,
   status, busy, message, error, connected, publicPostPageUrl,
   onBack, onSave, onPublish, onUnpublish, onDelete,
 }: EditorProps) {
@@ -449,6 +502,39 @@ function AdminEditor({
           </div>
         </div>
 
+        <div>
+          <div style={labelStyle}>type</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {(['writing', 'document', 'welcome'] as const).map((v) => (
+              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: postType === v ? theme.ink : theme.dim }}>
+                <input
+                  type="radio"
+                  name="postType"
+                  value={v}
+                  checked={postType === v}
+                  onChange={() => setPostType(v)}
+                  style={{ accentColor: theme.accent }}
+                />
+                {v}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={favorite}
+              onChange={(e) => setFavorite(e.target.checked)}
+              style={{ accentColor: theme.accent, width: 13, height: 13 }}
+            />
+            <span style={{ fontSize: 11, color: favorite ? theme.ink : theme.dim, fontFamily: MONO }}>
+              ★ pick
+            </span>
+          </label>
+        </div>
+
         <div style={{ flex: 1 }} />
 
         {/* Actions */}
@@ -544,6 +630,8 @@ export function App() {
   const [status, setStatus] = useState<GardenPostMeta['status']>('draft')
   const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
   const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
+  const [postType, setPostType] = useState<'writing' | 'document' | 'welcome'>('writing')
+  const [favorite, setFavorite] = useState(false)
   const [tagsInput, setTagsInput] = useState<string>('')
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [blobUrlToResolved, setBlobUrlToResolved] = useState<Map<string, string>>(new Map())
@@ -603,6 +691,8 @@ export function App() {
     const mt = (meta.mediaType ?? 'text/markdown') as 'text/markdown' | 'text/html' | 'text/plain'
     setMediaType(mt)
     setOriginalMediaType(mt)
+    setPostType(meta.postType ?? 'writing')
+    setFavorite(meta.favorite ?? false)
     setTagsInput(meta.tags?.join(', ') ?? '')
     setMessage('')
     setError('')
@@ -621,6 +711,8 @@ export function App() {
     setStatus('draft')
     setMediaType('text/markdown')
     setOriginalMediaType('text/markdown')
+    setPostType('writing')
+    setFavorite(false)
     setTagsInput('')
     setError('')
     setMessage('')
@@ -683,6 +775,8 @@ export function App() {
         title: resolvedTitle,
         excerpt: resolvedExcerpt,
         ...(tags.length > 0 ? { tags } : {}),
+        postType,
+        ...(favorite ? { favorite: true } : {}),
         status: nextStatus,
         createdAt,
         updatedAt: now,
@@ -789,6 +883,8 @@ export function App() {
             tagsInput={tagsInput} setTagsInput={setTagsInput}
             postDate={postDate} setPostDate={setPostDate}
             mediaType={mediaType} setMediaType={setMediaType}
+            postType={postType} setPostType={setPostType}
+            favorite={favorite} setFavorite={setFavorite}
             body={body} setBody={setBody}
             status={status}
             busy={busy}
