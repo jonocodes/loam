@@ -20,14 +20,15 @@ export default defineConfig({
         name: 'Loam',
         short_name: 'Loam',
         description: 'Your minimal local-first digital garden',
-        theme_color: '#1e293b',
-        background_color: '#ffffff',
+        theme_color: '#f3ebde',
+        background_color: '#f3ebde',
         display: 'standalone',
         start_url: '/write',
         scope: '/',
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/icon.svg', sizes: '1024x1024', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
       workbox: {
