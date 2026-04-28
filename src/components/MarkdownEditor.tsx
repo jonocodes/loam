@@ -18,13 +18,14 @@ interface Props {
 const baseTheme = EditorView.theme({
   '&': {
     fontSize: '14px',
-    borderRadius: '0.5rem',
-    border: '1px solid #cbd5e1',
-    backgroundColor: '#fff',
+    height: '100%',
+  },
+  '.cm-scroller': {
+    overflow: 'auto',
   },
   '.cm-content': {
     padding: '0.75rem',
-    minHeight: '24rem',
+    minHeight: '12rem',
     lineHeight: '1.65',
   },
   '.cm-focused': {
@@ -98,5 +99,5 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
     })
   }, [value])
 
-  return <div ref={hostRef} />
+  return <div ref={hostRef} style={{ height: '100%' }} />
 }

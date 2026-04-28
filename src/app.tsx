@@ -3,9 +3,8 @@ import { ConnectWidget } from './components/ConnectWidget'
 import { MarkdownEditor } from './components/MarkdownEditor'
 import { MediaPanel } from './components/MediaPanel'
 import { SettingsView } from './components/SettingsView'
-import { Button } from './components/ui/button'
-import { Card, CardContent, CardHeader } from './components/ui/card'
-import { Input } from './components/ui/input'
+import { StackLayout, useStackTheme } from './components/StackLayout'
+import type { StackTheme } from './components/StackLayout'
 import { deletePost, generateSlug, publishPost, unpublishPost } from './lib/gardenService'
 import { parseMarkdownToPost } from './lib/markdown'
 import { buildPublicHomeUrl, buildPublicPostUrl } from './lib/publicUrls'
@@ -28,9 +27,506 @@ import {
 import { matchRoute } from './lib/routes'
 import type { GardenPostMeta } from './lib/schema'
 
+const MONO = '"JetBrains Mono", ui-monospace, monospace'
+
 function sortByUpdatedDescending(items: GardenPostMeta[]): GardenPostMeta[] {
   return [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
+
+// ── Admin sidebar ─────────────────────────────────────────────────────────────
+
+interface SidebarProps {
+  theme: StackTheme
+  items: GardenPostMeta[]
+  allTags: string[]
+  tagFilter: string | null
+  setTagFilter: (t: string | null) => void
+  activeSlug: string | null
+  connected: boolean
+  sidebarTab: 'posts' | 'media'
+  setSidebarTab: (t: 'posts' | 'media') => void
+  onNew: () => void
+  onSelect: (item: GardenPostMeta) => void
+  onSettings: () => void
+  publicHomePageUrl: string | null
+  view: 'posts' | 'settings'
+}
+
+function AdminSidebar({
+  theme,
+  items,
+  allTags,
+  tagFilter,
+  setTagFilter,
+  activeSlug,
+  connected,
+  sidebarTab,
+  setSidebarTab,
+  onNew,
+  onSelect,
+  onSettings,
+  publicHomePageUrl,
+  view,
+}: SidebarProps) {
+  const visibleItems = tagFilter ? items.filter((i) => i.tags?.includes(tagFilter)) : items
+
+  return (
+    <>
+      {/* Tabs */}
+      <div style={{ padding: '4px 6px', display: 'flex', gap: 2, borderBottom: `1px solid ${theme.rule}`, marginBottom: 4 }}>
+        {(['posts', 'media'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setSidebarTab(tab)}
+            style={{
+              flex: 1,
+              background: sidebarTab === tab ? theme.sel : 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: sidebarTab === tab ? theme.ink : theme.dim,
+              padding: '5px 8px',
+              fontFamily: 'inherit',
+              fontSize: 12,
+              borderRadius: 3,
+              textAlign: 'center',
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {sidebarTab === 'media' ? (
+        <div style={{ flex: 1, overflow: 'auto', padding: '0 6px' }}>
+          <MediaPanelWrapper theme={theme} />
+        </div>
+      ) : (
+        <>
+          {/* New post */}
+          <div style={{ padding: '4px 6px' }}>
+            <button
+              type="button"
+              onClick={onNew}
+              style={{
+                width: '100%',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: theme.ink,
+                padding: '5px 8px',
+                fontFamily: 'inherit',
+                fontSize: 12,
+                textAlign: 'left',
+                borderRadius: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span style={{ color: theme.dim, width: 12 }}>+</span> New post
+            </button>
+          </div>
+
+          {/* Tag filter */}
+          {allTags.length > 0 && (
+            <div style={{ padding: '4px 14px 8px', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                  style={{
+                    background: tagFilter === tag ? theme.sel : 'none',
+                    border: `1px solid ${tagFilter === tag ? theme.accent : theme.rule}`,
+                    color: tagFilter === tag ? theme.accent : theme.dim,
+                    padding: '1px 6px',
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                    fontFamily: MONO,
+                    fontSize: 10,
+                  }}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Post list */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '0 6px' }}>
+            {visibleItems.length === 0 && (
+              <div style={{ padding: '8px 8px', color: theme.dim, fontSize: 12 }}>
+                {items.length === 0 ? 'No posts yet.' : 'No posts with this tag.'}
+              </div>
+            )}
+            {visibleItems.map((item) => (
+              <button
+                key={item.slug}
+                type="button"
+                onClick={() => onSelect(item)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  width: '100%',
+                  background: activeSlug === item.slug ? theme.sel : 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: theme.ink,
+                  padding: '5px 8px',
+                  borderRadius: 3,
+                  fontSize: 12,
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ color: theme.dim, width: 12, flexShrink: 0, marginTop: 1 }}>
+                  {item.status === 'published' ? '●' : item.status === 'draft' ? '○' : '·'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title || item.slug}
+                  </div>
+                  <div style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, marginTop: 1 }}>{item.status}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Bottom nav */}
+          <div style={{ padding: '4px 6px', borderTop: `1px solid ${theme.rule}` }}>
+            <button
+              type="button"
+              onClick={onSettings}
+              style={{
+                width: '100%',
+                background: view === 'settings' ? theme.sel : 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: view === 'settings' ? theme.ink : theme.dim,
+                padding: '5px 8px',
+                fontFamily: 'inherit',
+                fontSize: 12,
+                textAlign: 'left',
+                borderRadius: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <span style={{ color: theme.dim, width: 12 }}>⚙</span> Settings
+            </button>
+            {publicHomePageUrl && (
+              <a
+                href={publicHomePageUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  color: theme.dim,
+                  padding: '5px 8px',
+                  fontSize: 12,
+                  textDecoration: 'none',
+                  borderRadius: 3,
+                }}
+              >
+                <span style={{ width: 12 }}>↗</span> Public site
+              </a>
+            )}
+            <div style={{ padding: '5px 8px', fontSize: 11, color: theme.dim, fontFamily: MONO, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: connected ? theme.accent2 : theme.dim, display: 'inline-block', flexShrink: 0 }} />
+              {connected ? 'connected' : 'not connected'}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  )
+}
+
+function MediaPanelWrapper({ theme }: { theme: StackTheme }) {
+  return (
+    <div style={{ color: theme.ink }}>
+      <MediaPanelConsumer />
+    </div>
+  )
+}
+
+// A thin wrapper so MediaPanel can receive its onInsert from context set up by App
+// We use a global callback ref to avoid prop-drilling through AdminSidebar
+let _mediaPanelOnInsert: ((fragment: string, blobUrl?: string, resolvedUrl?: string) => void) | null = null
+
+function MediaPanelConsumer() {
+  return (
+    <MediaPanel
+      onInsert={(fragment, blobUrl, resolvedUrl) => {
+        _mediaPanelOnInsert?.(fragment, blobUrl, resolvedUrl)
+      }}
+    />
+  )
+}
+
+// ── Editor ────────────────────────────────────────────────────────────────────
+
+interface EditorProps {
+  title: string
+  setTitle: (v: string) => void
+  slug: string
+  setSlug: (v: string) => void
+  excerpt: string
+  setExcerpt: (v: string) => void
+  tagsInput: string
+  setTagsInput: (v: string) => void
+  postDate: string
+  setPostDate: (v: string) => void
+  mediaType: 'text/markdown' | 'text/html' | 'text/plain'
+  setMediaType: (v: 'text/markdown' | 'text/html' | 'text/plain') => void
+  body: string
+  setBody: (v: string) => void
+  status: GardenPostMeta['status']
+  busy: boolean
+  message: string
+  error: string
+  connected: boolean
+  publicPostPageUrl: string | null
+  onBack: () => void
+  onSave: () => void
+  onPublish: () => void
+  onUnpublish: () => void
+  onDelete: () => void
+}
+
+function AdminEditor({
+  title, setTitle, slug, setSlug, excerpt, setExcerpt,
+  tagsInput, setTagsInput, postDate, setPostDate,
+  mediaType, setMediaType, body, setBody,
+  status, busy, message, error, connected, publicPostPageUrl,
+  onBack, onSave, onPublish, onUnpublish, onDelete,
+}: EditorProps) {
+  const theme = useStackTheme()
+
+  const fieldStyle = {
+    background: 'none',
+    border: 'none',
+    borderBottom: `1px solid ${theme.rule}`,
+    outline: 'none',
+    color: theme.ink,
+    fontFamily: 'inherit',
+    fontSize: 12,
+    padding: '4px 0',
+    width: '100%',
+  }
+
+  const labelStyle = {
+    fontSize: 10,
+    color: theme.dim,
+    fontFamily: MONO,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
+    marginBottom: 3,
+  }
+
+  return (
+    <div style={{ display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      {/* Main editor area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 28px', minWidth: 0 }}>
+        {/* Mobile back */}
+        <button
+          type="button"
+          className="stack-menu-btn"
+          onClick={onBack}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: theme.dim, padding: '0 0 12px', fontFamily: MONO,
+            fontSize: 11, textAlign: 'left',
+          }}
+        >
+          ← posts
+        </button>
+
+        {/* Title */}
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Untitled"
+          style={{
+            width: '100%', background: 'none', border: 'none', outline: 'none',
+            fontSize: 22, fontWeight: 600, color: theme.ink, fontFamily: 'inherit',
+            padding: 0, marginBottom: 14, letterSpacing: -0.3,
+          }}
+        />
+
+        {/* Metadata bar */}
+        <div style={{
+          fontSize: 11, color: theme.dim, marginBottom: 14,
+          fontFamily: MONO, borderBottom: `1px solid ${theme.rule}`, paddingBottom: 10,
+          display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
+        }}>
+          <span>---</span>
+          <span style={{ color: theme.dim }}>status: <span style={{ color: status === 'published' ? theme.accent2 : theme.ink }}>{status}</span></span>
+          {slug && <span style={{ color: theme.dim }}>slug: <span style={{ color: theme.ink }}>{slug}</span></span>}
+          {tagsInput && <span style={{ color: theme.dim }}>tags: <span style={{ color: theme.ink }}>{tagsInput}</span></span>}
+          <span>---</span>
+        </div>
+
+        {/* Editor */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <MarkdownEditor
+            value={body}
+            onChange={setBody}
+            language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'}
+          />
+        </div>
+      </div>
+
+      {/* Right metadata panel */}
+      <div style={{
+        width: 240, flexShrink: 0,
+        borderLeft: `1px solid ${theme.rule}`,
+        padding: '20px 18px',
+        background: theme.panel,
+        display: 'flex', flexDirection: 'column', gap: 14,
+        overflowY: 'auto',
+      }} className="stack-meta-panel">
+        <div>
+          <div style={labelStyle}>slug</div>
+          <input
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            placeholder="auto"
+            style={{ ...fieldStyle, fontFamily: MONO, fontSize: 11 }}
+          />
+        </div>
+
+        <div>
+          <div style={labelStyle}>excerpt</div>
+          <input
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            style={fieldStyle}
+          />
+        </div>
+
+        <div>
+          <div style={labelStyle}>tags</div>
+          <input
+            value={tagsInput}
+            onChange={(e) => setTagsInput(e.target.value)}
+            placeholder="tag1, tag2"
+            style={fieldStyle}
+          />
+        </div>
+
+        <div>
+          <div style={labelStyle}>date</div>
+          <input
+            type="date"
+            value={postDate}
+            onChange={(e) => setPostDate(e.target.value)}
+            style={{ ...fieldStyle, fontFamily: MONO, fontSize: 11, colorScheme: 'dark' }}
+          />
+        </div>
+
+        <div>
+          <div style={labelStyle}>format</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {(['text/markdown', 'text/html', 'text/plain'] as const).map((v) => (
+              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 11, color: mediaType === v ? theme.ink : theme.dim }}>
+                <input
+                  type="radio"
+                  name="mediaType"
+                  value={v}
+                  checked={mediaType === v}
+                  onChange={() => setMediaType(v)}
+                  style={{ accentColor: theme.accent }}
+                />
+                {v.replace('text/', '')}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <ActionBtn theme={theme} onClick={onSave} disabled={busy} primary>
+            save
+          </ActionBtn>
+          <ActionBtn theme={theme} onClick={onPublish} disabled={busy || !connected}>
+            publish
+          </ActionBtn>
+          <ActionBtn theme={theme} onClick={onUnpublish} disabled={busy || !connected}>
+            unpublish
+          </ActionBtn>
+          <ActionBtn theme={theme} onClick={onDelete} disabled={busy} danger>
+            delete
+          </ActionBtn>
+          {publicPostPageUrl && (
+            <a
+              href={publicPostPageUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'block', textAlign: 'center', fontSize: 11,
+                color: theme.accent, textDecoration: 'none', fontFamily: MONO,
+                padding: '4px 0', borderTop: `1px solid ${theme.rule}`, marginTop: 2,
+              }}
+            >
+              ↗ open public post
+            </a>
+          )}
+        </div>
+
+        {message && (
+          <div style={{ fontSize: 11, color: theme.accent2, fontFamily: MONO }}>{message}</div>
+        )}
+        {error && (
+          <div style={{ fontSize: 11, color: '#e06c75', fontFamily: MONO }}>{error}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ActionBtn({
+  theme, onClick, disabled, children, primary, danger,
+}: {
+  theme: StackTheme
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+  primary?: boolean
+  danger?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        width: '100%',
+        background: primary ? theme.accent : danger ? 'none' : theme.panel2,
+        color: primary ? theme.bg : danger ? '#e06c75' : theme.ink,
+        border: danger ? `1px solid #e06c75` : 'none',
+        padding: '7px',
+        borderRadius: 3,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: 12,
+        fontFamily: 'inherit',
+        fontWeight: primary ? 600 : 400,
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 export function App() {
   const [path, setPath] = useState(window.location.pathname + window.location.search)
@@ -38,7 +534,6 @@ export function App() {
   const [connected, setConnected] = useState(isConnected())
   const [view, setView] = useState<'posts' | 'settings'>('posts')
   const [items, setItems] = useState<GardenPostMeta[]>([])
-  const [_selectedSlug, setSelectedSlug] = useState<string | null>(null)
 
   const [slug, setSlug] = useState<string>('')
   const [originalSlug, setOriginalSlug] = useState<string | null>(null)
@@ -48,21 +543,26 @@ export function App() {
   const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [status, setStatus] = useState<GardenPostMeta['status']>('draft')
   const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
-  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>(
-    'text/markdown',
-  )
+  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
   const [tagsInput, setTagsInput] = useState<string>('')
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [blobUrlToResolved, setBlobUrlToResolved] = useState<Map<string, string>>(new Map())
-  const [mobilePanel, setMobilePanel] = useState<'list' | 'editor'>('list')
   const [sidebarTab, setSidebarTab] = useState<'posts' | 'media'>('posts')
 
   const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null)
-  // undefined = still checking, null = not found, string = found
   const [wellKnownIndexUrl, setWellKnownIndexUrl] = useState<string | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  // Wire media panel insert callback
+  _mediaPanelOnInsert = (fragment, blobUrl, resolvedUrl) => {
+    setBody((prev) => (prev ? `${prev}\n${fragment}` : fragment))
+    if (blobUrl && resolvedUrl) {
+      setBlobUrlToResolved((prev) => new Map(prev).set(blobUrl, resolvedUrl))
+    }
+    setSidebarTab('posts')
+  }
 
   async function refreshList(): Promise<void> {
     const all = await pullAllPostMeta()
@@ -71,61 +571,29 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false
-
-    const connectedHandler = () => {
-      if (!cancelled) setConnected(true)
-    }
-    const disconnectedHandler = () => {
-      if (!cancelled) {
-        setConnected(false)
-        clearCloudSharingCache()
-      }
-    }
-    const popStateHandler = () => {
-      if (!cancelled) setPath(window.location.pathname + window.location.search)
-    }
+    const connectedHandler = () => { if (!cancelled) setConnected(true) }
+    const disconnectedHandler = () => { if (!cancelled) { setConnected(false); clearCloudSharingCache() } }
+    const popStateHandler = () => { if (!cancelled) setPath(window.location.pathname + window.location.search) }
     onConnected(connectedHandler)
     onDisconnected(disconnectedHandler)
     window.addEventListener('popstate', popStateHandler)
 
-    void fetchWellKnownIndexUrl().then((u) => {
-      if (!cancelled) setWellKnownIndexUrl(u)
-    })
-
+    void fetchWellKnownIndexUrl().then((u) => { if (!cancelled) setWellKnownIndexUrl(u) })
     void pullAllPostMeta()
-      .then((all) => {
-        if (!cancelled) setItems(sortByUpdatedDescending(all))
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
-      })
+      .then((all) => { if (!cancelled) setItems(sortByUpdatedDescending(all)) })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)) })
+    void pullGardenSetting('title').then((t) => { if (!cancelled && t) document.title = t })
+    void pullIndex().then((index) => { if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix) })
 
-    void pullGardenSetting('title').then((t) => {
-      if (!cancelled && t) document.title = t
-    })
-
-    void pullIndex().then((index) => {
-      if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix)
-    })
-
-    return () => {
-      cancelled = true
-      window.removeEventListener('popstate', popStateHandler)
-    }
+    return () => { cancelled = true; window.removeEventListener('popstate', popStateHandler) }
   }, [])
 
   useEffect(() => {
-    if (!connected) {
-      setPublicIndexUrl(null)
-      return
-    }
-    void loadPublicIndexUrl()
-      .then(setPublicIndexUrl)
-      .catch(() => setPublicIndexUrl(null))
+    if (!connected) { setPublicIndexUrl(null); return }
+    void loadPublicIndexUrl().then(setPublicIndexUrl).catch(() => setPublicIndexUrl(null))
   }, [connected])
 
   function loadPost(meta: GardenPostMeta): void {
-    setSelectedSlug(meta.slug)
     setSlug(meta.slug)
     setOriginalSlug(meta.slug)
     setTitle(meta.title)
@@ -138,16 +606,12 @@ export function App() {
     setTagsInput(meta.tags?.join(', ') ?? '')
     setMessage('')
     setError('')
-
     void pullPostMarkdown(meta.slug, meta.mediaType)
       .then((content) => setBody(content ?? ''))
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : String(err))
-      })
+      .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
   }
 
   function clearEditor(): void {
-    setSelectedSlug(null)
     setSlug('')
     setOriginalSlug(null)
     setTitle('')
@@ -170,20 +634,12 @@ export function App() {
   const allTags = useMemo(() => {
     const set = new Set<string>()
     for (const item of items) {
-      for (const t of item.tags ?? []) {
-        set.add(t)
-      }
+      for (const t of item.tags ?? []) set.add(t)
     }
     return [...set].sort()
   }, [items])
 
-  const visibleItems = useMemo(
-    () => (tagFilter ? items.filter((item) => item.tags?.includes(tagFilter)) : items),
-    [items, tagFilter],
-  )
-
   const publicHomePageUrl = buildPublicHomeUrl(publicIndexUrl, urlPrefix || '', 'e2')
-
   const publicPostPageUrl = originalSlug
     ? buildPublicPostUrl(publicIndexUrl, urlPrefix || '', 'e2', originalSlug)
     : null
@@ -191,43 +647,31 @@ export function App() {
   const pathname = path.split('?')[0]
   const { render } = matchRoute(pathname, window.location.search, wellKnownIndexUrl)
   const routeResult = render() as ReturnType<typeof render>
-
-  if (routeResult !== null) {
-    return routeResult
-  }
+  if (routeResult !== null) return routeResult
 
   async function saveDraft(): Promise<void> {
     setBusy(true)
     setError('')
     setMessage('')
-
     try {
       const now = new Date().toISOString()
-      const tags = tagsInput
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean)
+      const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean)
       const parsed = parseMarkdownToPost(body)
-      const resolvedTitle =
-        mediaType === 'text/markdown' ? title.trim() || parsed.title || 'Untitled' : title.trim() || 'Untitled'
+      const resolvedTitle = mediaType === 'text/markdown'
+        ? title.trim() || parsed.title || 'Untitled'
+        : title.trim() || 'Untitled'
       const resolvedExcerpt = excerpt.trim() || parsed.excerpt
       const rawBody = mediaType === 'text/markdown' ? parsed.body : body.trim()
       let parsedBody = rawBody
       for (const [blobUrl, resolvedUrl] of blobUrlToResolved) {
         parsedBody = parsedBody.split(blobUrl).join(resolvedUrl)
       }
-
       const resolvedSlug = slug.trim()
-        ? slug
-            .trim()
-            .toLowerCase()
-            .replace(/[^a-z0-9-]+/g, '-')
-            .replace(/^-+|-+$/g, '')
+        ? slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '')
         : await generateSlug(resolvedTitle || 'untitled')
 
       const slugChanged = originalSlug !== null && resolvedSlug !== originalSlug
       const mediaTypeChanged = originalSlug !== null && mediaType !== originalMediaType
-
       const createdAt = selectedMeta?.createdAt ?? now
       const nextStatus = selectedMeta?.status ?? 'draft'
       const nextPublishedAt = postDate ? new Date(postDate).toISOString() : (selectedMeta?.publishedAt ?? null)
@@ -253,11 +697,7 @@ export function App() {
         await storePostMarkdown(resolvedSlug, parsedBody, mediaType)
         await removePostMarkdown(originalSlug, originalMediaType)
         if (slugChanged) await removePostMeta(originalSlug)
-        if (nextStatus === 'published') {
-          setMessage('Saved. Post was published — republish to update the public site.')
-        } else {
-          setMessage('Saved')
-        }
+        setMessage(nextStatus === 'published' ? 'Saved. Republish to update public site.' : 'Saved')
       } else {
         await storePostMeta(meta)
         await storePostMarkdown(resolvedSlug, parsedBody, mediaType)
@@ -284,32 +724,24 @@ export function App() {
     setBusy(true)
     setError('')
     setMessage('')
-
     try {
-      if (!slug && !originalSlug) {
-        throw new Error('Select or save a post first')
-      }
-
+      if (!slug && !originalSlug) throw new Error('Select or save a post first')
       const activeSlug = originalSlug ?? slug
-
       if (action === 'publish') {
         await publishPost(activeSlug)
-        setMessage('Post published')
+        setMessage('Published')
         setStatus('published')
         void loadPublicIndexUrl().then(setPublicIndexUrl)
       } else if (action === 'unpublish') {
         await unpublishPost(activeSlug)
-        setMessage('Post unpublished')
+        setMessage('Unpublished')
         setStatus('unpublished')
       } else if (action === 'delete') {
-        const confirmed = window.confirm('Delete this post markdown and metadata?')
-        if (!confirmed) return
+        if (!window.confirm('Delete this post?')) return
         await deletePost(activeSlug)
-        setMessage('Post deleted')
+        setMessage('Deleted')
         clearEditor()
-        setMobilePanel('list')
       }
-
       await refreshList()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err))
@@ -318,235 +750,66 @@ export function App() {
     }
   }
 
+  const currentSlug = view === 'settings' ? null : (originalSlug ?? (slug || null))
+  const viewLabel = busy ? 'BUSY' : view === 'settings' ? 'PREFS' : originalSlug ? 'NORMAL' : 'INSERT'
+  const breadcrumbBase = '~/write'
+
   return (
-    <main className="mx-auto max-w-6xl px-4 py-4 md:p-6 font-sans text-slate-900">
+    <>
       <ConnectWidget />
-
-      <header className="mb-6 space-y-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h1 className="text-2xl font-semibold md:text-3xl">Loam</h1>
-          <nav className="flex flex-wrap gap-2">
-            <Button variant={view === 'posts' ? 'default' : 'outline'} size="sm" onClick={() => setView('posts')}>
-              Posts
-            </Button>
-            <Button variant={view === 'settings' ? 'default' : 'outline'} size="sm" onClick={() => setView('settings')}>
-              Settings
-            </Button>
-            {publicHomePageUrl ? (
-              <Button variant="outline" size="sm" asChild>
-                <a href={publicHomePageUrl} target="_blank" rel="noreferrer">
-                  Public site
-                </a>
-              </Button>
-            ) : null}
-          </nav>
-        </div>
-        <p className="text-sm text-slate-600">
-          <strong className="text-slate-900">{connected ? 'Connected' : 'Not connected'}</strong>.{' '}
-          {connected
-            ? 'Your posts sync to remote storage.'
-            : 'Use the sync widget in the page corner if you want your site to be public.'}
-        </p>
-      </header>
-
-      {view === 'settings' ? <SettingsView onSave={(prefix) => setUrlPrefix(prefix)} /> : null}
-
-      <section className={`grid grid-cols-1 gap-4 md:grid-cols-[320px_1fr]${view === 'settings' ? ' hidden' : ''}`}>
-        <Card className={mobilePanel === 'editor' ? 'hidden md:block' : ''}>
-          <CardHeader>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                className={`text-sm font-semibold ${sidebarTab === 'posts' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'}`}
-                onClick={() => setSidebarTab('posts')}
-              >
-                Posts
-              </button>
-              <button
-                type="button"
-                className={`text-sm font-semibold ${sidebarTab === 'media' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-700'}`}
-                onClick={() => setSidebarTab('media')}
-              >
-                Media
-              </button>
-            </div>
-            {sidebarTab === 'posts' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  clearEditor()
-                  setMobilePanel('editor')
-                }}
-              >
-                New
-              </Button>
-            ) : null}
-          </CardHeader>
-          <CardContent>
-            {sidebarTab === 'media' ? (
-              <MediaPanel
-                onInsert={(fragment, blobUrl, resolvedUrl) => {
-                  setBody((prev) => (prev ? `${prev}\n${fragment}` : fragment))
-                  if (blobUrl && resolvedUrl) {
-                    setBlobUrlToResolved((prev) => new Map(prev).set(blobUrl, resolvedUrl))
-                  }
-                  setMobilePanel('editor')
-                }}
-              />
-            ) : (
-              <>
-                {allTags.length > 0 ? (
-                  <div className="mb-3 flex flex-wrap gap-1">
-                    {allTags.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-                        className={`rounded-full px-2 py-0.5 text-xs transition-colors ${tagFilter === tag ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {visibleItems.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    {items.length === 0 ? 'No posts yet.' : 'No posts with this tag.'}
-                  </p>
-                ) : null}
-                <ul className="space-y-2">
-                  {visibleItems.map((item) => (
-                    <li key={item.slug}>
-                      <Button
-                        variant="secondary"
-                        className="h-auto w-full justify-start p-3 text-left"
-                        onClick={() => {
-                          loadPost(item)
-                          setMobilePanel('editor')
-                        }}
-                      >
-                        <div>
-                          <div className="font-semibold">{item.title}</div>
-                          <div className="text-xs text-slate-500">
-                            {item.status} · {item.slug}
-                          </div>
-                        </div>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className={mobilePanel === 'list' ? 'hidden md:block' : ''}>
-          <CardContent className="space-y-4 pt-4">
-            <button
-              type="button"
-              className="flex items-center gap-1 text-sm text-slate-500 md:hidden"
-              onClick={() => setMobilePanel('list')}
-            >
-              ← Posts
-            </button>
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Title</span>
-              <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-            </label>
-
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Slug</span>
-              <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="(autogenerated)" />
-              <span className="text-xs text-slate-500">
-                URL-friendly identifier. Leave empty to auto-generate from title.
-              </span>
-            </label>
-
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Excerpt</span>
-              <Input value={excerpt} onChange={(event) => setExcerpt(event.target.value)} />
-            </label>
-
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Tags</span>
-              <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="tag1, tag2, tag3" />
-              <span className="text-xs text-slate-500">Comma-separated.</span>
-            </label>
-
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Date</span>
-              <Input type="date" value={postDate} onChange={(event) => setPostDate(event.target.value)} />
-            </label>
-
-            <fieldset className="grid gap-1 text-sm">
-              <span className="font-medium">Format</span>
-              <div className="flex gap-4">
-                {(
-                  [
-                    ['text/markdown', 'Markdown'],
-                    ['text/html', 'HTML'],
-                    ['text/plain', 'Plain text'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="mediaType"
-                      value={value}
-                      checked={mediaType === value}
-                      onChange={() => setMediaType(value)}
-                    />
-                    <span>{label}</span>
-                  </label>
-                ))}
-              </div>
-              <span className="text-xs text-slate-500">
-                Controls how the body is rendered when published. Does not convert existing content.
-              </span>
-            </fieldset>
-
-            <label className="grid gap-1 text-sm">
-              <span className="font-medium">Body</span>
-              <MarkdownEditor
-                value={body}
-                onChange={setBody}
-                language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'}
-              />
-            </label>
-
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={busy} onClick={() => void saveDraft()}>
-                Save
-              </Button>
-              <span title={!connected ? 'Connect a remote storage provider to publish' : undefined}>
-                <Button disabled={busy || !connected} variant="secondary" onClick={() => void runAction('publish')}>
-                  Publish
-                </Button>
-              </span>
-              <span title={!connected ? 'Connect a remote storage provider to unpublish' : undefined}>
-                <Button disabled={busy || !connected} variant="secondary" onClick={() => void runAction('unpublish')}>
-                  Unpublish
-                </Button>
-              </span>
-              <Button disabled={busy} variant="destructive" onClick={() => void runAction('delete')}>
-                Delete
-              </Button>
-              {publicPostPageUrl ? (
-                <Button variant="outline" size="sm" asChild>
-                  <a href={publicPostPageUrl} target="_blank" rel="noreferrer">
-                    Open public post page
-                  </a>
-                </Button>
-              ) : null}
-              <span className="ml-auto text-xs text-slate-500">Status: {status}</span>
-            </div>
-
-            {message ? <p className="text-sm text-green-700">{message}</p> : null}
-            {error ? <p className="text-sm text-red-700">{error}</p> : null}
-          </CardContent>
-        </Card>
-      </section>
-    </main>
+      <StackLayout
+        currentSlug={view === 'settings' ? undefined : currentSlug ?? undefined}
+        viewLabel={viewLabel}
+        basePath={breadcrumbBase}
+        sidebarContent={
+          <AdminSidebarWithTheme
+            items={items}
+            allTags={allTags}
+            tagFilter={tagFilter}
+            setTagFilter={setTagFilter}
+            activeSlug={currentSlug}
+            connected={connected}
+            sidebarTab={sidebarTab}
+            setSidebarTab={setSidebarTab}
+            onNew={() => { clearEditor(); setView('posts') }}
+            onSelect={(item) => { loadPost(item); setView('posts') }}
+            onSettings={() => setView('settings')}
+            publicHomePageUrl={publicHomePageUrl}
+            view={view}
+          />
+        }
+      >
+        {view === 'settings' ? (
+          <SettingsView onSave={(prefix) => setUrlPrefix(prefix)} />
+        ) : (
+          <AdminEditor
+            title={title} setTitle={setTitle}
+            slug={slug} setSlug={setSlug}
+            excerpt={excerpt} setExcerpt={setExcerpt}
+            tagsInput={tagsInput} setTagsInput={setTagsInput}
+            postDate={postDate} setPostDate={setPostDate}
+            mediaType={mediaType} setMediaType={setMediaType}
+            body={body} setBody={setBody}
+            status={status}
+            busy={busy}
+            message={message}
+            error={error}
+            connected={connected}
+            publicPostPageUrl={publicPostPageUrl}
+            onBack={clearEditor}
+            onSave={() => void saveDraft()}
+            onPublish={() => void runAction('publish')}
+            onUnpublish={() => void runAction('unpublish')}
+            onDelete={() => void runAction('delete')}
+          />
+        )}
+      </StackLayout>
+    </>
   )
+}
+
+// Thin wrapper to access theme from context (StackLayout provides it)
+function AdminSidebarWithTheme(props: Omit<SidebarProps, 'theme'>) {
+  const theme = useStackTheme()
+  return <AdminSidebar theme={theme} {...props} />
 }

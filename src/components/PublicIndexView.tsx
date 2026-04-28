@@ -3,35 +3,42 @@ import { navigate } from '../lib/navigate'
 import { buildPostLinkUrl } from '../lib/publicUrls'
 import { getPublicIndexUrl } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
+import { StackLayout, useStackTheme } from './StackLayout'
 
 function getIndexUrlFromQuery(): string | null {
-  const params = new URLSearchParams(window.location.search)
-  return params.get('index')
+  return new URLSearchParams(window.location.search).get('index')
 }
+
+const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
 interface Props {
   indexUrl?: string
   indexBasePath?: string
 }
 
-export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props = {}) {
-  const [index, setIndex] = useState<GardenIndex | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+function IndexContent({
+  index,
+  loading,
+  error,
+  indexUrl,
+  indexBasePath,
+}: {
+  index: GardenIndex | null
+  loading: boolean
+  error: string | null
+  indexUrl: string | null
+  indexBasePath?: string | null
+}) {
+  const theme = useStackTheme()
   const [tagFilter, setTagFilter] = useState<string | null>(null)
 
-  const indexUrl = useMemo(() => propIndexUrl ?? getIndexUrlFromQuery() ?? getPublicIndexUrl(), [propIndexUrl])
-
   const allTags = useMemo(() => {
-    const set = new Set<string>()
-    if (index) {
-      for (const p of index.posts) {
-        for (const t of p.tags ?? []) {
-          set.add(t)
-        }
-      }
+    if (!index) return []
+    const s = new Set<string>()
+    for (const p of index.posts) {
+      for (const t of p.tags ?? []) s.add(t)
     }
-    return [...set].sort()
+    return [...s].sort()
   }, [index])
 
   const visiblePosts = useMemo(
@@ -39,36 +46,161 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
     [index, tagFilter],
   )
 
+  if (loading) {
+    return (
+      <div style={{ padding: '24px 28px', color: theme.dim, fontFamily: MONO, fontSize: 12 }}>loading index...</div>
+    )
+  }
+
+  if (error) {
+    return <div style={{ padding: '24px 28px', color: '#e06c75', fontFamily: MONO, fontSize: 12 }}>error: {error}</div>
+  }
+
+  if (!index) {
+    return <div style={{ padding: '24px 28px', color: theme.dim }}>No posts found.</div>
+  }
+
+  return (
+    <div style={{ padding: '20px 28px 60px' }}>
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 12 }}>
+        <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: -0.2, color: theme.ink }}>
+          {tagFilter ? `#${tagFilter}` : 'All posts'}
+        </h1>
+        <span style={{ color: theme.dim, fontSize: 12, fontFamily: MONO }}>{visiblePosts.length} files</span>
+      </div>
+
+      {allTags.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              style={{
+                background: tagFilter === tag ? theme.sel : 'none',
+                border: `1px solid ${tagFilter === tag ? theme.accent : theme.rule}`,
+                color: tagFilter === tag ? theme.accent : theme.dim,
+                padding: '2px 8px',
+                borderRadius: 3,
+                cursor: 'pointer',
+                fontFamily: MONO,
+                fontSize: 11,
+              }}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ borderTop: `1px solid ${theme.rule}` }}>
+        {visiblePosts.map((post) => {
+          const postUrl = buildPostLinkUrl(indexUrl, indexBasePath ?? null, index.urlEncoding ?? 'e2', post.slug)
+          const date = post.date || new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+          return (
+            <button
+              key={post.slug}
+              type="button"
+              onClick={() => navigate(postUrl, { entry: post } satisfies { entry: GardenIndexEntry })}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '96px 1fr 90px',
+                gap: 16,
+                alignItems: 'baseline',
+                width: '100%',
+                padding: '10px 4px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: theme.ink,
+                borderBottom: `1px solid ${theme.rule}`,
+                fontFamily: 'inherit',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontFamily: MONO, fontSize: 11, color: theme.dim }}>{date}</span>
+              <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>{post.title}</div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: theme.dim,
+                    lineHeight: 1.45,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {post.excerpt}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                {(post.tags ?? []).slice(0, 2).map((t) => (
+                  <span key={t} style={{ fontSize: 10, color: theme.dim, fontFamily: MONO }}>
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      <div
+        style={{
+          marginTop: 48,
+          paddingTop: 16,
+          borderTop: `1px solid ${theme.rule}`,
+          textAlign: 'center',
+          fontSize: 11,
+          color: theme.dim,
+          fontFamily: MONO,
+        }}
+      >
+        published with{' '}
+        <a
+          href="/"
+          style={{ color: theme.accent, textDecoration: 'underline', textUnderlineOffset: 3 }}
+          onClick={(e) => {
+            e.preventDefault()
+            navigate('/')
+          }}
+        >
+          loam
+        </a>
+      </div>
+    </div>
+  )
+}
+
+export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props = {}) {
+  const [index, setIndex] = useState<GardenIndex | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const indexUrl = useMemo(() => propIndexUrl ?? getIndexUrlFromQuery() ?? getPublicIndexUrl(), [propIndexUrl])
+
   useEffect(() => {
     let cancelled = false
 
     async function load() {
       if (!indexUrl) {
-        setError('No public index URL available yet. Connect to remoteStorage first or provide ?index=.')
+        setError('No public index URL configured.')
         setLoading(false)
         return
       }
       setLoading(true)
       setError(null)
-
       try {
-        const response = await fetch(indexUrl)
-        if (!response.ok) {
-          throw new Error(`Unable to load garden index (${response.status}).`)
-        }
-
-        const parsed = (await response.json()) as GardenIndex
-        if (!cancelled) {
-          setIndex(parsed)
-        }
+        const res = await fetch(indexUrl)
+        if (!res.ok) throw new Error(`Failed to load index (${res.status})`)
+        const data = (await res.json()) as GardenIndex
+        if (!cancelled) setIndex(data)
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load garden index.')
-        }
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load index')
       } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
+        if (!cancelled) setLoading(false)
       }
     }
 
@@ -78,87 +210,15 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
     }
   }, [indexUrl])
 
-  if (loading) {
-    return <p className="mx-auto max-w-3xl p-6 text-slate-500">Loading garden index...</p>
-  }
-
-  if (error) {
-    return <p className="mx-auto max-w-3xl p-6 text-red-600">{error}</p>
-  }
-
-  if (!index) {
-    return <p className="mx-auto max-w-3xl p-6 text-slate-500">Garden index not found.</p>
-  }
-
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 md:p-6">
-      <header className="mb-6 border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-semibold text-slate-900 md:text-3xl">{index.title || 'Loam'}</h1>
-        {index.tagline ? <p className="mt-2 text-slate-600">{index.tagline}</p> : null}
-      </header>
-
-      {allTags.length > 0 ? (
-        <div className="mb-4 flex flex-wrap gap-1">
-          {allTags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-              className={`rounded-full px-3 py-1 text-xs transition-colors ${tagFilter === tag ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      <ul className="space-y-4">
-        {visiblePosts.map((post) => {
-          const postUrl = buildPostLinkUrl(indexUrl, indexBasePath ?? null, index.urlEncoding ?? 'e2', post.slug)
-
-          return (
-            <li key={post.slug} className="rounded-lg border border-slate-200 bg-white p-4">
-              <a
-                className="text-lg font-semibold text-slate-900 underline underline-offset-4"
-                href={postUrl}
-                onClick={(e) => {
-                  e.preventDefault()
-                  navigate(postUrl, { entry: post } satisfies { entry: GardenIndexEntry })
-                }}
-              >
-                {post.title}
-              </a>
-              <p className="mt-1 text-sm text-slate-600">{post.excerpt}</p>
-              {post.tags && post.tags.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {post.tags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              <p className="mt-2 text-xs text-slate-500">
-                Published {post.date || new Date(post.publishedAt).toLocaleDateString()}
-              </p>
-            </li>
-          )
-        })}
-      </ul>
-
-      <footer className="mt-10 border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
-        Published with{' '}
-        <a
-          className="underline underline-offset-4 hover:text-slate-600"
-          href="/"
-          onClick={(e) => {
-            e.preventDefault()
-            navigate('/')
-          }}
-        >
-          Loam
-        </a>
-      </footer>
-    </main>
+    <StackLayout index={index} indexUrl={indexUrl ?? null} indexBasePath={indexBasePath ?? null} currentSlug={null}>
+      <IndexContent
+        index={index}
+        loading={loading}
+        error={error}
+        indexUrl={indexUrl ?? null}
+        indexBasePath={indexBasePath ?? null}
+      />
+    </StackLayout>
   )
 }

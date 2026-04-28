@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 body {
@@ -9,6 +9,72 @@ body {
   background: #f8fafc;
   color: #0f172a;
 }
+
+/* ── Stack public layout ─────────────────────────────────── */
+
+.stack-sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  /* mobile: overlay */
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 50;
+  transform: translateX(-100%);
+  transition: transform 0.15s ease;
+}
+
+.stack-sidebar.open {
+  transform: translateX(0);
+}
+
+@media (min-width: 768px) {
+  .stack-sidebar {
+    position: relative;
+    transform: translateX(0);
+  }
+}
+
+.stack-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stack-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+}
+
+@media (min-width: 768px) {
+  .stack-overlay {
+    display: none !important;
+  }
+
+  .stack-menu-btn {
+    display: none !important;
+  }
+}
+
+/* Admin meta panel — hidden on mobile */
+.stack-meta-panel {
+  display: flex;
+}
+
+@media (max-width: 767px) {
+  .stack-meta-panel {
+    display: none;
+  }
+}
+
+/* ── Markdown body (light) ───────────────────────────────── */
 
 .markdown-body h1,
 .markdown-body h2,
@@ -20,26 +86,16 @@ body {
   line-height: 1.3;
   margin: 1.5em 0 0.5em;
 }
-.markdown-body h1 {
-  font-size: 1.75rem;
-}
-.markdown-body h2 {
-  font-size: 1.375rem;
-}
-.markdown-body h3 {
-  font-size: 1.125rem;
-}
-.markdown-body p {
-  margin: 0.75em 0;
-}
+.markdown-body h1 { font-size: 1.75rem; }
+.markdown-body h2 { font-size: 1.375rem; }
+.markdown-body h3 { font-size: 1.125rem; }
+.markdown-body p { margin: 0.75em 0; }
 .markdown-body ul,
 .markdown-body ol {
   padding-left: 1.5em;
   margin: 0.75em 0;
 }
-.markdown-body li {
-  margin: 0.25em 0;
-}
+.markdown-body li { margin: 0.25em 0; }
 .markdown-body blockquote {
   border-left: 3px solid #cbd5e1;
   margin: 0.75em 0;
@@ -94,3 +150,73 @@ body {
   background: #f8fafc;
   font-weight: 600;
 }
+
+/* ── Markdown body (dark) ────────────────────────────────── */
+
+[data-theme='dark'] .markdown-body {
+  color: var(--stack-ink);
+  font-size: 14px;
+  line-height: 1.7;
+}
+[data-theme='dark'] .markdown-body h1,
+[data-theme='dark'] .markdown-body h2,
+[data-theme='dark'] .markdown-body h3,
+[data-theme='dark'] .markdown-body h4 {
+  color: var(--stack-ink);
+}
+[data-theme='dark'] .markdown-body p { color: var(--stack-ink); }
+[data-theme='dark'] .markdown-body li { color: var(--stack-ink); }
+[data-theme='dark'] .markdown-body code {
+  background: var(--stack-panel2);
+  color: var(--stack-accent2);
+}
+[data-theme='dark'] .markdown-body pre {
+  background: var(--stack-panel);
+  border: 1px solid var(--stack-rule);
+  border-radius: 4px;
+}
+[data-theme='dark'] .markdown-body pre code {
+  background: none;
+  color: var(--stack-ink);
+}
+[data-theme='dark'] .markdown-body blockquote {
+  border-left-color: var(--stack-accent);
+  color: var(--stack-dim);
+}
+[data-theme='dark'] .markdown-body a {
+  color: var(--stack-accent);
+}
+[data-theme='dark'] .markdown-body hr {
+  border-top-color: var(--stack-rule);
+}
+[data-theme='dark'] .markdown-body th {
+  background: var(--stack-panel2);
+  color: var(--stack-ink);
+}
+[data-theme='dark'] .markdown-body th,
+[data-theme='dark'] .markdown-body td {
+  border-color: var(--stack-rule);
+  color: var(--stack-ink);
+}
+[data-theme='dark'] .markdown-body img {
+  opacity: 0.9;
+}
+
+/* hljs dark overrides */
+[data-theme='dark'] .hljs {
+  background: var(--stack-panel);
+  color: var(--stack-ink);
+}
+[data-theme='dark'] .hljs-comment,
+[data-theme='dark'] .hljs-quote { color: var(--stack-dim); font-style: italic; }
+[data-theme='dark'] .hljs-keyword,
+[data-theme='dark'] .hljs-selector-tag,
+[data-theme='dark'] .hljs-built_in { color: var(--stack-accent); }
+[data-theme='dark'] .hljs-string,
+[data-theme='dark'] .hljs-attr { color: var(--stack-accent2); }
+[data-theme='dark'] .hljs-number,
+[data-theme='dark'] .hljs-literal { color: #ff9e64; }
+[data-theme='dark'] .hljs-title,
+[data-theme='dark'] .hljs-class { color: #e0af68; }
+[data-theme='dark'] .hljs-variable,
+[data-theme='dark'] .hljs-name { color: var(--stack-ink); }

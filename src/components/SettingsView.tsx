@@ -9,15 +9,16 @@ import {
   resolvePublicFeedAtomUrl,
   resolvePublicFeedUrl,
 } from '../lib/remotestorage'
-import { Button } from './ui/button'
-import { Card, CardContent } from './ui/card'
-import { Input } from './ui/input'
+import { useStackTheme } from './StackLayout'
+
+const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
 interface Props {
   onSave?: (urlPrefix: string) => void
 }
 
 export function SettingsView({ onSave }: Props = {}) {
+  const theme = useStackTheme()
   const [title, setTitle] = useState('')
   const [tagline, setTagline] = useState('')
   const [urlPrefix, setUrlPrefix] = useState('')
@@ -80,137 +81,178 @@ export function SettingsView({ onSave }: Props = {}) {
     }
   }
 
+  const fieldStyle = {
+    background: theme.panel2,
+    border: `1px solid ${theme.rule}`,
+    outline: 'none',
+    color: theme.ink,
+    fontFamily: 'inherit',
+    fontSize: 12,
+    padding: '6px 10px',
+    borderRadius: 3,
+    width: '100%',
+  }
+
+  const labelStyle = {
+    fontSize: 10,
+    color: theme.dim,
+    fontFamily: MONO,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
+    marginBottom: 4,
+    display: 'block',
+  }
+
+  const sectionStyle = {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 4,
+  }
+
   return (
-    <Card>
-      <CardContent className="space-y-4 pt-4">
-        <label className="grid gap-1 text-sm">
-          <span className="font-medium">Site Title</span>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="My Garden" />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span className="font-medium">Tagline</span>
-          <Input
+    <div style={{ padding: '24px 32px 80px', maxWidth: 560 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 24px', letterSpacing: -0.2, color: theme.ink }}>
+        Settings
+      </h1>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={sectionStyle}>
+          <span style={labelStyle}>Site title</span>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="My Garden"
+            style={fieldStyle}
+          />
+        </div>
+
+        <div style={sectionStyle}>
+          <span style={labelStyle}>Tagline</span>
+          <input
             value={tagline}
             onChange={(e) => setTagline(e.target.value)}
-            placeholder="A short description of your site"
+            placeholder="A short description"
+            style={fieldStyle}
           />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span className="font-medium">URL prefix</span>
-          <Input value={urlPrefix} onChange={(e) => setUrlPrefix(e.target.value)} placeholder="yourname" />
-          <span className="text-xs text-slate-500">
-            Appears in public URLs: /p/<em>yourname</em>/…
+        </div>
+
+        <div style={sectionStyle}>
+          <span style={labelStyle}>URL prefix</span>
+          <input
+            value={urlPrefix}
+            onChange={(e) => setUrlPrefix(e.target.value)}
+            placeholder="yourname"
+            style={fieldStyle}
+          />
+          <span style={{ fontSize: 11, color: theme.dim, fontFamily: MONO }}>
+            appears in public URLs: /p/<em>{urlPrefix || 'yourname'}</em>/…
           </span>
-        </label>
-        <fieldset className="grid gap-1 text-sm">
-          <span className="font-medium">URL encoding</span>
-          <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="urlEncoding"
-                value="e2"
-                checked={urlEncoding === 'e2'}
-                onChange={() => setUrlEncoding('e2')}
-              />
-              <span>
-                e2 — Base64 URL-safe <span className="text-slate-500">(default)</span>
-              </span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="urlEncoding"
-                value="e1"
-                checked={urlEncoding === 'e1'}
-                onChange={() => setUrlEncoding('e1')}
-              />
-              <span>e1 — Plain URL encoding</span>
-            </label>
-          </div>
-        </fieldset>
-        <div className="flex flex-wrap gap-2">
-          <Button disabled={busy} onClick={() => void handleSave()}>
-            Save settings
-          </Button>
-          <Button disabled={busy} variant="outline" onClick={() => void handleRebuild()}>
-            Rebuild index
-          </Button>
         </div>
-        {message ? <p className="text-sm text-green-700">{message}</p> : null}
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-        {publicIndexUrl
-          ? (() => {
-              const token = encodeIndexToken(publicIndexUrl, urlEncoding)
-              const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
-              const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
-              return (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-slate-500">Your public site</p>
-                    <a
-                      className="break-all text-sm font-medium text-slate-900 underline underline-offset-4"
-                      href={siteUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {siteUrl}
-                    </a>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs font-medium text-slate-500">URL-param version (for domain masking)</p>
-                    <a
-                      className="break-all text-sm text-slate-700 underline underline-offset-4"
-                      href={maskedUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {maskedUrl}
-                    </a>
-                  </div>
-                </div>
-              )
-            })()
-          : null}
-        <div className="border-t border-slate-200 pt-4 text-xs text-slate-400 space-y-0.5">
-          <p>
-            Powered by{' '}
-            <a
-              className="underline underline-offset-4 hover:text-slate-600"
-              href="https://github.com/jonocodes/loam"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Loam
-            </a>
-          </p>
-          <p>Deployed {new Date(__BUILD_TIME__).toLocaleString()}</p>
-        </div>
-        {publicIndexUrl || publicFeedUrl || publicFeedAtomUrl || gardenSettingsUrl ? (
-          <div className="flex flex-wrap gap-4 border-t border-slate-200 pt-4 text-sm">
-            {publicIndexUrl ? (
-              <a className="underline underline-offset-4" href={publicIndexUrl} target="_blank" rel="noreferrer">
-                Open index.json
-              </a>
-            ) : null}
-            {publicFeedUrl ? (
-              <a className="underline underline-offset-4" href={publicFeedUrl} target="_blank" rel="noreferrer">
-                Open feed.json
-              </a>
-            ) : null}
-            {publicFeedAtomUrl ? (
-              <a className="underline underline-offset-4" href={publicFeedAtomUrl} target="_blank" rel="noreferrer">
-                Open feed.atom
-              </a>
-            ) : null}
-            {gardenSettingsUrl ? (
-              <a className="underline underline-offset-4" href={gardenSettingsUrl} target="_blank" rel="noreferrer">
-                Open garden.json
-              </a>
-            ) : null}
+
+        <div style={sectionStyle}>
+          <span style={labelStyle}>URL encoding</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {([['e2', 'e2 — Base64 URL-safe (default)'], ['e1', 'e1 — Plain URL encoding']] as const).map(([val, label]) => (
+              <label key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: urlEncoding === val ? theme.ink : theme.dim }}>
+                <input
+                  type="radio"
+                  name="urlEncoding"
+                  value={val}
+                  checked={urlEncoding === val}
+                  onChange={() => setUrlEncoding(val)}
+                  style={{ accentColor: theme.accent }}
+                />
+                <span style={{ fontFamily: MONO }}>{label}</span>
+              </label>
+            ))}
           </div>
-        ) : null}
-      </CardContent>
-    </Card>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleSave()}
+            style={{
+              background: theme.accent,
+              color: theme.bg,
+              border: 'none',
+              padding: '7px 16px',
+              borderRadius: 3,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              fontSize: 12,
+              fontFamily: 'inherit',
+              fontWeight: 600,
+              opacity: busy ? 0.5 : 1,
+            }}
+          >
+            save settings
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleRebuild()}
+            style={{
+              background: theme.panel2,
+              color: theme.ink,
+              border: `1px solid ${theme.rule}`,
+              padding: '7px 16px',
+              borderRadius: 3,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              fontSize: 12,
+              fontFamily: 'inherit',
+              opacity: busy ? 0.5 : 1,
+            }}
+          >
+            rebuild index
+          </button>
+        </div>
+
+        {message && <div style={{ fontSize: 12, color: theme.accent2, fontFamily: MONO }}>{message}</div>}
+        {error && <div style={{ fontSize: 12, color: '#e06c75', fontFamily: MONO }}>{error}</div>}
+
+        {/* Public site info */}
+        {publicIndexUrl && (() => {
+          const token = encodeIndexToken(publicIndexUrl, urlEncoding)
+          const siteUrl = `${window.location.origin}/p/${urlPrefix || 'garden'}/${token}`
+          const maskedUrl = `${window.location.origin}/?index=${encodeURIComponent(publicIndexUrl)}`
+          return (
+            <div style={{ background: theme.panel2, border: `1px solid ${theme.rule}`, borderRadius: 4, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <div style={{ ...labelStyle, marginBottom: 6 }}>your public site</div>
+                <a href={siteUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: theme.accent, textDecoration: 'underline', textUnderlineOffset: 3, wordBreak: 'break-all' }}>{siteUrl}</a>
+              </div>
+              <div>
+                <div style={{ ...labelStyle, marginBottom: 6 }}>url-param version (domain masking)</div>
+                <a href={maskedUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: theme.dim, textDecoration: 'underline', textUnderlineOffset: 3, wordBreak: 'break-all', fontFamily: MONO }}>{maskedUrl}</a>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Dev links */}
+        {(publicIndexUrl || publicFeedUrl || publicFeedAtomUrl || gardenSettingsUrl) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, paddingTop: 12, borderTop: `1px solid ${theme.rule}` }}>
+            {[
+              [publicIndexUrl, 'index.json'],
+              [publicFeedUrl, 'feed.json'],
+              [publicFeedAtomUrl, 'feed.atom'],
+              [gardenSettingsUrl, 'garden.json'],
+            ].filter(([u]) => u).map(([url, label]) => (
+              <a key={label} href={url!} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: theme.dim, textDecoration: 'underline', textUnderlineOffset: 3, fontFamily: MONO }}>
+                {label}
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ paddingTop: 12, borderTop: `1px solid ${theme.rule}`, fontSize: 11, color: theme.dim, fontFamily: MONO, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <span>powered by <a href="https://github.com/jonocodes/loam" target="_blank" rel="noreferrer" style={{ color: theme.accent, textDecoration: 'underline', textUnderlineOffset: 3 }}>loam</a></span>
+          <span>deployed {new Date(__BUILD_TIME__).toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
   )
 }
