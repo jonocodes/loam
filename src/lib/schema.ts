@@ -34,7 +34,6 @@ export const GardenPostMetaSchema = z.preprocess(
 
 export const GardenIndexEntrySchema = z.object({
   slug: z.string(),
-  date: z.string(),
   title: z.string(),
   excerpt: z.string(),
   tags: z.array(z.string()).optional(),

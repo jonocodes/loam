@@ -52,7 +52,6 @@ describe('garden index helpers', () => {
       index,
       {
         slug: '2026-04-22-post-1',
-        date: '2026-04-22',
         title: 'Post 1',
         excerpt: 'First',
         publishedAt: '2026-04-22T12:00:00Z',
@@ -72,7 +71,6 @@ describe('garden index helpers', () => {
     const index = createEmptyIndex('Blog', '2026-04-22T10:00:00Z')
     const withPost = upsertIndexEntry(index, {
       slug: '2026-04-22-post-1',
-      date: '2026-04-22',
       title: 'Post 1',
       excerpt: 'First',
       publishedAt: '2026-04-22T12:00:00Z',
@@ -97,7 +95,6 @@ describe('garden index helpers', () => {
   it('generates Atom feed XML with correct structure', () => {
     const index = upsertIndexEntry(createEmptyIndex('My Blog'), {
       slug: '2026-04-26-hello',
-      date: '2026-04-26',
       title: 'Hello World',
       excerpt: 'A greeting',
       publishedAt: '2026-04-26T10:00:00Z',
@@ -158,7 +155,7 @@ describe('garden index helpers', () => {
 
     expect(rebuilt.posts).toHaveLength(1)
     expect(rebuilt.posts[0].slug).toBe('2026-04-22-post-1')
-    expect(rebuilt.posts[0].date).toBe('2026-04-22')
+    expect(rebuilt.posts[0].publishedAt).toBe('2026-04-22T12:00:00Z')
     expect(rebuilt.updatedAt).toBe('2026-04-22T15:00:00Z')
   })
 })

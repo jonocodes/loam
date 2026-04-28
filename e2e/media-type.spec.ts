@@ -9,10 +9,14 @@ test.describe('media type rendering', () => {
 
   test('html post renders as HTML, not escaped text', async ({ page }) => {
     await page.goto(`/p/test/${MOCK_TOKEN}/2026-04-25-html-post`)
-    // The <strong> tag should be rendered, not shown as literal text
-    await expect(page.locator('.markdown-body strong')).toBeVisible()
-    await expect(page.locator('.markdown-body p.html-marker')).toBeVisible()
+    await expect(page.locator('iframe[title="Post content"]')).toBeVisible()
+    const iframe = page.locator('iframe[title="Post content"]').contentFrame()
+    await expect(iframe.locator('h1')).toContainText('HTML Post')
+    await expect(iframe.locator('p.html-marker')).toBeVisible()
+    await expect(iframe.locator('strong')).toBeVisible()
     await expect(page.getByText('<strong>')).not.toBeVisible()
+    await expect(iframe.locator('body')).toHaveCSS('background-color', 'rgb(14, 16, 20)')
+    await expect(iframe.locator('body')).toHaveCSS('color', 'rgb(221, 226, 236)')
   })
 
   test('plain text post renders inside a pre element', async ({ page }) => {
@@ -31,7 +35,6 @@ test.describe('media type rendering', () => {
           updatedAt: '2026-04-25T10:00:00Z',
           posts: [{
             slug: '2026-04-25-inferred-html',
-            date: '2026-04-25',
             title: 'Inferred HTML',
             excerpt: 'No mediaType set.',
             publishedAt: '2026-04-25T10:00:00Z',
@@ -49,7 +52,10 @@ test.describe('media type rendering', () => {
     )
 
     await page.goto(`/p/test/${MOCK_TOKEN}/2026-04-25-inferred-html`)
-    await expect(page.locator('p.inferred-marker strong')).toBeVisible()
+    await expect(page.locator('iframe[title="Post content"]')).toBeVisible()
+    const iframe = page.locator('iframe[title="Post content"]').contentFrame()
+    await expect(iframe.locator('p.inferred-marker')).toBeVisible()
+    await expect(iframe.locator('p.inferred-marker strong')).toBeVisible()
     await expect(page.getByText('<strong>')).not.toBeVisible()
   })
 })

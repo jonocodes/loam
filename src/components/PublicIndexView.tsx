@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { navigate } from '../lib/navigate'
+import { loadPublicIndex } from '../lib/publicIndexClient'
 import { buildPostLinkUrl } from '../lib/publicUrls'
 import { getPublicIndexUrl } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
@@ -7,6 +8,11 @@ import { StackLayout, useStackTheme } from './StackLayout'
 
 function getIndexUrlFromQuery(): string | null {
   return new URLSearchParams(window.location.search).get('index')
+}
+
+function hasExplicitIndexFilters(): boolean {
+  const params = new URLSearchParams(window.location.search)
+  return Boolean(params.get('type') || params.get('tag'))
 }
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
@@ -33,7 +39,7 @@ function IndexContent({
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const typeFilter = useMemo(() => {
     const t = new URLSearchParams(window.location.search).get('type')
-    return t === 'writing' || t === 'document' ? t : null
+    return t === 'writing' || t === 'document' || t === 'welcome' ? t : null
   }, [])
 
   const allTags = useMemo(() => {
@@ -76,7 +82,7 @@ function IndexContent({
     <div style={{ padding: '20px 28px 60px' }}>
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 12 }}>
         <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: -0.2, color: theme.ink }}>
-          {typeFilter === 'writing' ? 'Writings' : typeFilter === 'document' ? 'Documents' : tagFilter ? `#${tagFilter}` : 'All posts'}
+          {typeFilter === 'writing' ? 'Writings' : typeFilter === 'document' ? 'Documents' : typeFilter === 'welcome' ? 'Welcome' : tagFilter ? `#${tagFilter}` : 'All posts'}
           {typeFilter && tagFilter ? ` · #${tagFilter}` : ''}
         </h1>
         <span style={{ color: theme.dim, fontSize: 12, fontFamily: MONO }}>{visiblePosts.length} files</span>
@@ -141,7 +147,7 @@ function IndexContent({
       <div style={{ borderTop: `1px solid ${theme.rule}` }}>
         {visiblePosts.map((post) => {
           const postUrl = buildPostLinkUrl(indexUrl, indexBasePath ?? null, index.urlEncoding ?? 'e2', post.slug)
-          const date = post.date || new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          const date = new Date(post.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
           return (
             <button
@@ -238,9 +244,7 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(indexUrl)
-        if (!res.ok) throw new Error(`Failed to load index (${res.status})`)
-        const data = (await res.json()) as GardenIndex
+        const data = await loadPublicIndex(indexUrl)
         if (!cancelled) setIndex(data)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load index')
@@ -254,6 +258,20 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
       cancelled = true
     }
   }, [indexUrl])
+
+  useEffect(() => {
+    if (!index || loading || error) return
+    if (hasExplicitIndexFilters()) return
+
+    const welcomePost = index.posts.find((post) => (post.postType ?? 'writing') === 'welcome')
+    if (!welcomePost) return
+
+    const nextUrl = buildPostLinkUrl(indexUrl ?? null, indexBasePath ?? null, index.urlEncoding ?? 'e2', welcomePost.slug)
+    if (window.location.pathname === new URL(nextUrl, window.location.origin).pathname) return
+
+    history.replaceState({ entry: welcomePost }, '', nextUrl)
+    window.dispatchEvent(new PopStateEvent('popstate', { state: { entry: welcomePost } }))
+  }, [error, index, indexBasePath, indexUrl, loading])
 
   return (
     <StackLayout index={index} indexUrl={indexUrl ?? null} indexBasePath={indexBasePath ?? null} currentSlug={null}>

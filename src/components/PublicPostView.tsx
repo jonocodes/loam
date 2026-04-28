@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { navigate } from '../lib/navigate'
+import { getCachedPublicIndex, loadPublicIndex } from '../lib/publicIndexClient'
 import { getPublicIndexUrl, inferMediaType } from '../lib/remotestorage'
 import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
 import { MarkdownViewer } from './MarkdownViewer'
 import { StackLayout, useStackTheme } from './StackLayout'
+import type { StackTheme } from './StackLayout'
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
@@ -20,6 +22,30 @@ function getHistoryEntry(): GardenIndexEntry | null {
 
 function getQueryParam(name: string): string | null {
   return new URLSearchParams(window.location.search).get(name)
+}
+
+function buildThemedHtmlSrcDoc(html: string, theme: StackTheme): string {
+  const themeCss = `<style>
+    :root { color-scheme: light dark; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: ${theme.bg};
+      color: ${theme.ink};
+      font-family: Inter, system-ui, sans-serif;
+      line-height: 1.6;
+    }
+    body { padding: 20px; }
+    a { color: ${theme.accent}; }
+  </style>`
+
+  if (/<head[\s>]/i.test(html)) {
+    return html.replace(/<\/head>/i, `${themeCss}</head>`)
+  }
+  if (/<html[\s>]/i.test(html)) {
+    return html.replace(/<html([^>]*)>/i, `<html$1><head>${themeCss}</head>`)
+  }
+  return `<!doctype html><html><head>${themeCss}</head><body>${html}</body></html>`
 }
 
 function PostContent({
@@ -72,12 +98,11 @@ function PostContent({
             }}
           >
             <span>
-              {post.date ||
-                new Date(post.publishedAt).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
+              {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
             </span>
             {post.updatedAt && post.updatedAt !== post.publishedAt && (
               <>
@@ -102,7 +127,7 @@ function PostContent({
       ) : mediaType === 'text/html' ? (
         <iframe
           sandbox="allow-same-origin"
-          srcDoc={body}
+          srcDoc={buildThemedHtmlSrcDoc(body, theme)}
           style={{ width: '100%', minHeight: '40rem', border: 'none', borderRadius: 4 }}
           title="Post content"
         />
@@ -171,12 +196,9 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
         let fetchedIndex: GardenIndex | null = null
 
         if (indexUrl) {
-          const res = await fetch(indexUrl)
-          if (!res.ok) throw new Error(`Failed to load index (${res.status})`)
-          fetchedIndex = (await res.json()) as GardenIndex
+          fetchedIndex = getCachedPublicIndex(indexUrl) ?? await loadPublicIndex(indexUrl)
           if (!cancelled) {
             setIndex(fetchedIndex)
-  
           }
         }
 

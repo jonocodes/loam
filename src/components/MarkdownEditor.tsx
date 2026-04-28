@@ -81,7 +81,7 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
       view.destroy()
       viewRef.current = null
     }
-  }, [readOnly, language, value])
+  }, [readOnly, language])
 
   useEffect(() => {
     const view = viewRef.current

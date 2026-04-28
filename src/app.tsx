@@ -73,7 +73,6 @@ function AdminSidebar({
   const writingItems = taggedItems.filter((i) => (i.postType ?? 'writing') === 'writing')
   const documentItems = taggedItems.filter((i) => i.postType === 'document')
   const welcomeItems = taggedItems.filter((i) => i.postType === 'welcome')
-  const SECTION_LIMIT = 5
 
   function renderPostButton(item: GardenPostMeta) {
     return (
@@ -109,37 +108,26 @@ function AdminSidebar({
     )
   }
 
-  function renderSection(label: string, sectionItems: GardenPostMeta[], viewAllUrl: string | null) {
+  function renderSection(label: string, sectionItems: GardenPostMeta[]) {
     if (sectionItems.length === 0) return null
-    const shown = sectionItems.slice(0, SECTION_LIMIT)
     return (
       <div style={{ marginBottom: 4 }}>
         <div style={{ padding: '6px 14px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 10, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase' as const }}>
             {label}
           </span>
-          {viewAllUrl && (
-            <a
-              href={viewAllUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{ fontSize: 10, color: theme.accent, fontFamily: MONO, textDecoration: 'none' }}
-            >
-              view all ↗
-            </a>
-          )}
         </div>
         <div style={{ padding: '0 6px' }}>
-          {shown.map((item) => renderPostButton(item))}
+          {sectionItems.map((item) => renderPostButton(item))}
         </div>
       </div>
     )
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       {/* Tabs */}
-      <div style={{ padding: '4px 6px', display: 'flex', gap: 2, borderBottom: `1px solid ${theme.rule}`, marginBottom: 4 }}>
+      <div style={{ padding: '4px 6px', display: 'flex', gap: 2, borderBottom: `1px solid ${theme.rule}`, marginBottom: 4, flexShrink: 0 }}>
         {(['posts', 'media'] as const).map((tab) => (
           <button
             key={tab}
@@ -162,15 +150,14 @@ function AdminSidebar({
           </button>
         ))}
       </div>
-
       {sidebarTab === 'media' ? (
         <div style={{ flex: 1, overflow: 'auto', padding: '0 6px' }}>
           <MediaPanelWrapper theme={theme} />
         </div>
       ) : (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {/* New post */}
-          <div style={{ padding: '4px 6px' }}>
+          <div style={{ padding: '4px 6px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={onNew}
@@ -196,7 +183,7 @@ function AdminSidebar({
 
           {/* Tag filter */}
           {allTags.length > 0 && (
-            <div style={{ padding: '4px 14px 8px', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            <div style={{ padding: '4px 14px 8px', display: 'flex', gap: 4, flexWrap: 'wrap', flexShrink: 0 }}>
               {allTags.map((tag) => (
                 <button
                   key={tag}
@@ -227,72 +214,67 @@ function AdminSidebar({
             {tagFilter && taggedItems.length === 0 && items.length > 0 && (
               <div style={{ padding: '8px 14px', color: theme.dim, fontSize: 12 }}>No posts with this tag.</div>
             )}
-            {renderSection('★ picks', pickItems, null)}
-            {pickItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0 || welcomeItems.length > 0) && (
+            {renderSection('welcome', welcomeItems)}
+            {welcomeItems.length > 0 && (pickItems.length > 0 || writingItems.length > 0 || documentItems.length > 0) && (
               <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
             )}
-            {renderSection('writings', writingItems, publicHomePageUrl ? `${publicHomePageUrl}?type=writing` : null)}
+            {renderSection('★ picks', pickItems)}
+            {pickItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0) && (
+              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
+            )}
+            {renderSection('writings', writingItems)}
             {documentItems.length > 0 && writingItems.length > 0 && (
               <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
             )}
-            {renderSection('documents', documentItems, publicHomePageUrl ? `${publicHomePageUrl}?type=document` : null)}
-            {welcomeItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0) && (
-              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-            )}
-            {renderSection('welcome', welcomeItems, publicHomePageUrl ? `${publicHomePageUrl}?type=welcome` : null)}
+            {renderSection('documents', documentItems)}
           </div>
-
-          {/* Bottom nav */}
-          <div style={{ padding: '4px 6px', borderTop: `1px solid ${theme.rule}` }}>
-            <button
-              type="button"
-              onClick={onSettings}
-              style={{
-                width: '100%',
-                background: view === 'settings' ? theme.sel : 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: view === 'settings' ? theme.ink : theme.dim,
-                padding: '5px 8px',
-                fontFamily: 'inherit',
-                fontSize: 12,
-                textAlign: 'left',
-                borderRadius: 3,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <span style={{ color: theme.dim, width: 12 }}>⚙</span> Settings
-            </button>
-            {publicHomePageUrl && (
-              <a
-                href={publicHomePageUrl}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  width: '100%',
-                  color: theme.dim,
-                  padding: '5px 8px',
-                  fontSize: 12,
-                  textDecoration: 'none',
-                  borderRadius: 3,
-                }}
-              >
-                <span style={{ width: 12 }}>↗</span> Public site
-              </a>
-            )}
-            <div style={{ padding: '5px 8px', fontSize: 11, color: theme.dim, fontFamily: MONO, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: connected ? theme.accent2 : theme.dim, display: 'inline-block', flexShrink: 0 }} />
-              {connected ? 'connected' : 'not connected'}
-            </div>
-          </div>
-        </>
+        </div>
       )}
-    </>
+      <div style={{ padding: '8px 6px 10px', borderTop: `1px solid ${theme.rule}`, marginTop: 4, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: connected ? theme.accent2 : theme.dim,
+              display: 'inline-block',
+              flexShrink: 0,
+            }}
+          />
+          <span style={{ color: theme.dim, fontFamily: MONO, fontSize: 10 }}>
+            {connected ? 'connected' : 'not connected'}
+          </span>
+          <span style={{ flex: 1 }} />
+          {publicHomePageUrl && (
+            <a
+              href={publicHomePageUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 10, color: theme.accent, fontFamily: MONO, textDecoration: 'none' }}
+            >
+              ↗ public
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onSettings}
+            style={{
+              background: view === 'settings' ? theme.sel : 'none',
+              border: 'none',
+              color: view === 'settings' ? theme.ink : theme.dim,
+              cursor: 'pointer',
+              padding: '2px 6px',
+              borderRadius: 3,
+              fontFamily: MONO,
+              fontSize: 10,
+            }}
+          >
+            settings
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -360,6 +342,7 @@ function AdminEditor({
   onBack, onSave, onPublish, onUnpublish, onDelete,
 }: EditorProps) {
   const theme = useStackTheme()
+  const [metaOpen, setMetaOpen] = useState(false)
 
   const fieldStyle = {
     background: 'none',
@@ -382,68 +365,14 @@ function AdminEditor({
     marginBottom: 3,
   }
 
-  return (
-    <div style={{ display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-      {/* Main editor area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 28px', minWidth: 0 }}>
-        {/* Mobile back */}
-        <button
-          type="button"
-          className="stack-menu-btn"
-          onClick={onBack}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: theme.dim, padding: '0 0 12px', fontFamily: MONO,
-            fontSize: 11, textAlign: 'left',
-          }}
-        >
-          ← posts
-        </button>
+  function renderMetaPanel(mobile = false) {
+    const runAction = (action: () => void) => {
+      action()
+      if (mobile) setMetaOpen(false)
+    }
 
-        {/* Title */}
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Untitled"
-          style={{
-            width: '100%', background: 'none', border: 'none', outline: 'none',
-            fontSize: 22, fontWeight: 600, color: theme.ink, fontFamily: 'inherit',
-            padding: 0, marginBottom: 14, letterSpacing: -0.3,
-          }}
-        />
-
-        {/* Metadata bar */}
-        <div style={{
-          fontSize: 11, color: theme.dim, marginBottom: 14,
-          fontFamily: MONO, borderBottom: `1px solid ${theme.rule}`, paddingBottom: 10,
-          display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
-        }}>
-          <span>---</span>
-          <span style={{ color: theme.dim }}>status: <span style={{ color: status === 'published' ? theme.accent2 : theme.ink }}>{status}</span></span>
-          {slug && <span style={{ color: theme.dim }}>slug: <span style={{ color: theme.ink }}>{slug}</span></span>}
-          {tagsInput && <span style={{ color: theme.dim }}>tags: <span style={{ color: theme.ink }}>{tagsInput}</span></span>}
-          <span>---</span>
-        </div>
-
-        {/* Editor */}
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <MarkdownEditor
-            value={body}
-            onChange={setBody}
-            language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'}
-          />
-        </div>
-      </div>
-
-      {/* Right metadata panel */}
-      <div style={{
-        width: 240, flexShrink: 0,
-        borderLeft: `1px solid ${theme.rule}`,
-        padding: '20px 18px',
-        background: theme.panel,
-        display: 'flex', flexDirection: 'column', gap: 14,
-        overflowY: 'auto',
-      }} className="stack-meta-panel">
+    return (
+      <>
         <div>
           <div style={labelStyle}>slug</div>
           <input
@@ -539,16 +468,16 @@ function AdminEditor({
 
         {/* Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <ActionBtn theme={theme} onClick={onSave} disabled={busy} primary>
+          <ActionBtn theme={theme} onClick={() => runAction(onSave)} disabled={busy} primary>
             save
           </ActionBtn>
-          <ActionBtn theme={theme} onClick={onPublish} disabled={busy || !connected}>
+          <ActionBtn theme={theme} onClick={() => runAction(onPublish)} disabled={busy || !connected}>
             publish
           </ActionBtn>
-          <ActionBtn theme={theme} onClick={onUnpublish} disabled={busy || !connected}>
+          <ActionBtn theme={theme} onClick={() => runAction(onUnpublish)} disabled={busy || !connected}>
             unpublish
           </ActionBtn>
-          <ActionBtn theme={theme} onClick={onDelete} disabled={busy} danger>
+          <ActionBtn theme={theme} onClick={() => runAction(onDelete)} disabled={busy} danger>
             delete
           </ActionBtn>
           {publicPostPageUrl && (
@@ -561,6 +490,7 @@ function AdminEditor({
                 color: theme.accent, textDecoration: 'none', fontFamily: MONO,
                 padding: '4px 0', borderTop: `1px solid ${theme.rule}`, marginTop: 2,
               }}
+              onClick={() => setMetaOpen(false)}
             >
               ↗ open public post
             </a>
@@ -573,6 +503,118 @@ function AdminEditor({
         {error && (
           <div style={{ fontSize: 11, color: '#e06c75', fontFamily: MONO }}>{error}</div>
         )}
+      </>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+      {metaOpen && <div className="stack-meta-overlay" onClick={() => setMetaOpen(false)} />}
+
+      {/* Main editor area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 28px', minWidth: 0 }}>
+        {/* Mobile controls */}
+        <div className="stack-mobile-editor-controls">
+          <button
+            type="button"
+            className="stack-menu-btn"
+            onClick={onBack}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: theme.dim, padding: '0 0 12px', fontFamily: MONO,
+              fontSize: 11, textAlign: 'left',
+            }}
+          >
+            ← posts
+          </button>
+          <button
+            type="button"
+            className="stack-menu-btn"
+            onClick={() => setMetaOpen((open) => !open)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: theme.dim, padding: '0 0 12px', fontFamily: MONO,
+              fontSize: 11, textAlign: 'right',
+            }}
+          >
+            {metaOpen ? 'close' : 'meta'}
+          </button>
+        </div>
+
+        {/* Title */}
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Untitled"
+          style={{
+            width: '100%', background: 'none', border: 'none', outline: 'none',
+            fontSize: 22, fontWeight: 600, color: theme.ink, fontFamily: 'inherit',
+            padding: 0, marginBottom: 14, letterSpacing: -0.3,
+          }}
+        />
+
+        {/* Metadata bar */}
+        <div style={{
+          fontSize: 11, color: theme.dim, marginBottom: 14,
+          fontFamily: MONO, borderBottom: `1px solid ${theme.rule}`, paddingBottom: 10,
+          display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
+        }}>
+          <span>---</span>
+          <span style={{ color: theme.dim }}>status: <span style={{ color: status === 'published' ? theme.accent2 : theme.ink }}>{status}</span></span>
+          {slug && <span style={{ color: theme.dim }}>slug: <span style={{ color: theme.ink }}>{slug}</span></span>}
+          {tagsInput && <span style={{ color: theme.dim }}>tags: <span style={{ color: theme.ink }}>{tagsInput}</span></span>}
+          <span>---</span>
+        </div>
+
+        {/* Editor */}
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <MarkdownEditor
+            value={body}
+            onChange={setBody}
+            language={mediaType === 'text/markdown' ? 'markdown' : 'plaintext'}
+          />
+        </div>
+      </div>
+
+      {/* Right metadata panel */}
+      <div style={{
+        width: 240, flexShrink: 0,
+        borderLeft: `1px solid ${theme.rule}`,
+        padding: '20px 18px',
+        background: theme.panel,
+        flexDirection: 'column', gap: 14,
+        overflowY: 'auto',
+      }} className="stack-meta-panel">
+        {renderMetaPanel()}
+      </div>
+
+      <div
+        className={`stack-meta-drawer${metaOpen ? ' open' : ''}`}
+        style={{ background: theme.panel, borderTop: `1px solid ${theme.rule}` }}
+      >
+        <div style={{ padding: '12px 14px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11, color: theme.dim, fontFamily: MONO, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+            metadata
+          </span>
+          <button
+            type="button"
+            onClick={() => setMetaOpen(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: theme.dim,
+              fontFamily: MONO,
+              fontSize: 11,
+              padding: 0,
+            }}
+          >
+            close
+          </button>
+        </div>
+        <div style={{ padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', height: 'calc(100% - 36px)' }}>
+          {renderMetaPanel(true)}
+        </div>
       </div>
     </div>
   )
@@ -776,7 +818,7 @@ export function App() {
         excerpt: resolvedExcerpt,
         ...(tags.length > 0 ? { tags } : {}),
         postType,
-        ...(favorite ? { favorite: true } : {}),
+        ...(favorite !== undefined ? { favorite } : {}),
         status: nextStatus,
         createdAt,
         updatedAt: now,

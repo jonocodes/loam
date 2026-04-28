@@ -15,11 +15,8 @@ export function toIndexEntry(meta: GardenPostMeta, contentUrl: string): GardenIn
     throw new Error(`Post ${meta.slug} has no publishedAt timestamp`)
   }
 
-  const date = meta.publishedAt.slice(0, 10)
-
   return {
     slug: meta.slug,
-    date,
     title: meta.title,
     excerpt: meta.excerpt,
     ...(meta.tags !== undefined ? { tags: meta.tags } : {}),

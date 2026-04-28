@@ -5,6 +5,7 @@ export { expect }
 
 const MOCK_BASE = 'http://mock.loam.test'
 export const MOCK_INDEX_URL = `${MOCK_BASE}/index.json`
+export { MOCK_BASE }
 export const MOCK_TOKEN = encodeIndexToken(MOCK_INDEX_URL)
 
 export const testIndex = {
@@ -17,27 +18,28 @@ export const testIndex = {
   posts: [
     {
       slug: '2026-04-20-hello-world',
-      date: '2026-04-20',
       title: 'Hello World',
       excerpt: 'My first post.',
+      tags: ['intro'],
+      favorite: true,
       publishedAt: '2026-04-20T09:00:00Z',
       updatedAt: '2026-04-20T09:00:00Z',
       contentUrl: `${MOCK_BASE}/posts/2026-04-20-hello-world.md`,
     },
     {
       slug: '2026-04-25-second-post',
-      date: '2026-04-25',
       title: 'Second Post',
       excerpt: 'The second post with a cross-link.',
+      tags: ['meta'],
       publishedAt: '2026-04-25T10:00:00Z',
       updatedAt: '2026-04-25T10:00:00Z',
       contentUrl: `${MOCK_BASE}/posts/2026-04-25-second-post.md`,
     },
     {
       slug: '2026-04-25-html-post',
-      date: '2026-04-25',
       title: 'HTML Post',
       excerpt: 'A post in HTML.',
+      tags: ['web'],
       mediaType: 'text/html',
       publishedAt: '2026-04-25T11:00:00Z',
       updatedAt: '2026-04-25T11:00:00Z',
@@ -45,7 +47,6 @@ export const testIndex = {
     },
     {
       slug: '2026-04-25-plain-post',
-      date: '2026-04-25',
       title: 'Plain Post',
       excerpt: 'A post in plain text.',
       mediaType: 'text/plain',
@@ -58,11 +59,11 @@ export const testIndex = {
 
 const postContent: Record<string, { body: string; contentType: string }> = {
   '2026-04-20-hello-world.md': {
-    body: '# Hello World\n\nThis is my first post.\n\nSee also [second post](2026-04-25-second-post).',
+    body: '# Hello World\n\nThis is my first post.\n\nSee also [second post](2026-04-25-second-post).\n\nInline `code` here.',
     contentType: 'text/markdown',
   },
   '2026-04-25-second-post.md': {
-    body: '# Second Post\n\nThis is the second post.',
+    body: '# Second Post\n\n> This is a blockquote\n\nThis is the second post.\n\n```js\nconst x = 42;\n```',
     contentType: 'text/markdown',
   },
   '2026-04-25-html-post.html': {

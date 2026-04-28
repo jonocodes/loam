@@ -8,7 +8,7 @@ test.describe('cross-linking between posts', () => {
     // Click the cross-link to the second post
     await page.getByRole('link', { name: 'second post' }).click()
 
-    await expect(page.getByRole('heading', { name: 'Second Post' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Second Post' }).first()).toBeVisible()
     await expect(page.getByText('This is the second post.')).toBeVisible()
   })
 
@@ -26,7 +26,7 @@ test.describe('cross-linking between posts', () => {
     page.on('load', () => { fullReload = true })
 
     await page.getByRole('link', { name: 'second post' }).click()
-    await expect(page.getByRole('heading', { name: 'Second Post' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Second Post' }).first()).toBeVisible()
 
     expect(fullReload).toBe(false)
   })
