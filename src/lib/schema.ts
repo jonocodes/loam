@@ -7,19 +7,28 @@ export const PostStatusSchema = z.enum(['draft', 'published', 'unpublished', 'de
 //   'text/html'  — raw HTML posts
 // Default when absent: 'text/markdown'
 
-export const GardenPostMetaSchema = z.object({
-  version: z.literal(1),
-  slug: z.string(),
-  title: z.string(),
-  excerpt: z.string(),
-  tags: z.array(z.string()).optional(),
-  mediaType: z.string().optional(),
-  status: PostStatusSchema,
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  publishedAt: z.string().nullable(),
-  deletedAt: z.string().nullable(),
-})
+export const GardenPostMetaSchema = z.preprocess(
+  (data) => {
+    if (typeof data === 'object' && data !== null) {
+      const d = data as Record<string, unknown>
+      if (!d.slug && typeof d.id === 'string') return { ...d, slug: d.id }
+    }
+    return data
+  },
+  z.object({
+    version: z.literal(1),
+    slug: z.string(),
+    title: z.string(),
+    excerpt: z.string(),
+    tags: z.array(z.string()).optional(),
+    mediaType: z.string().optional(),
+    status: PostStatusSchema,
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    publishedAt: z.string().nullable(),
+    deletedAt: z.string().nullable(),
+  }),
+)
 
 export const GardenIndexEntrySchema = z.object({
   slug: z.string(),
