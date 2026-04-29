@@ -38,6 +38,12 @@ function getDefaultType(types: PostTypeConfig[]): string {
   return types.find((t) => t.isDefault)?.name ?? types[0]?.name ?? 'posts'
 }
 
+function normalizeEditorMediaType(mediaType?: string): 'text/markdown' | 'text/html' | 'text/plain' {
+  if (mediaType === 'text/html' || mediaType === 'html') return 'text/html'
+  if (mediaType === 'text/plain' || mediaType === 'plain' || mediaType === 'text') return 'text/plain'
+  return 'text/markdown'
+}
+
 // ── Admin sidebar ─────────────────────────────────────────────────────────────
 
 interface SidebarProps {
@@ -435,6 +441,7 @@ function AdminEditor({
       action()
       if (mobile) setMetaOpen(false)
     }
+    const mediaTypeGroupName = mobile ? 'mediaType-mobile' : 'mediaType-desktop'
 
     return (
       <>
@@ -490,7 +497,7 @@ function AdminEditor({
               >
                 <input
                   type="radio"
-                  name="mediaType"
+                  name={mediaTypeGroupName}
                   value={v}
                   checked={mediaType === v}
                   onChange={() => setMediaType(v)}
@@ -839,6 +846,15 @@ export function App() {
     setItems(sortByUpdatedDescending(all))
   }
 
+  function loadInitialPost(all: GardenPostMeta[], homeSlug?: string): void {
+    if (view !== 'posts' || originalSlug || slug) return
+    const initial =
+      (homeSlug ? all.find((item) => item.slug === homeSlug) : null) ??
+      all[0] ??
+      null
+    if (initial) loadPost(initial)
+  }
+
   useEffect(() => {
     let cancelled = false
     const connectedHandler = () => {
@@ -860,14 +876,34 @@ export function App() {
     void fetchWellKnownIndexUrl().then((u) => {
       if (!cancelled) setWellKnownIndexUrl(u)
     })
-    void pullAllPostMeta()
-      .then((all) => { if (!cancelled) setItems(sortByUpdatedDescending(all)) })
-      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)) })
+    void Promise.all([pullAllPostMeta(), pullIndex()])
+      .then(([all, index]) => {
+        if (cancelled) return
+        const sorted = sortByUpdatedDescending(all)
+        setItems(sorted)
+        if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+        if (index?.postTypes) setPostTypes(index.postTypes)
+        loadInitialPost(sorted, index?.homeSlug)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
     void pullGardenSetting('title').then((t) => { if (!cancelled && t) document.title = t })
-    void pullIndex().then((index) => {
-      if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix)
-      if (!cancelled && index?.postTypes) setPostTypes(index.postTypes)
-    })
+    void seedGarden()
+      .then(async (seeded) => {
+        if (!seeded || cancelled) return
+        const [all, index] = await Promise.all([pullAllPostMeta(), pullIndex()])
+        if (cancelled) return
+        const sorted = sortByUpdatedDescending(all)
+        setItems(sorted)
+        if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+        if (index?.postTypes) setPostTypes(index.postTypes)
+        loadInitialPost(sorted, index?.homeSlug)
+        if (index?.homeSlug) document.title = index.title
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
+      })
 
     return () => {
       cancelled = true
@@ -883,14 +919,6 @@ export function App() {
     void loadPublicIndexUrl()
       .then(setPublicIndexUrl)
       .catch(() => setPublicIndexUrl(null))
-    void seedGarden().then(async (seeded) => {
-      if (!seeded) return
-      const [all, index] = await Promise.all([pullAllPostMeta(), pullIndex()])
-      setItems(sortByUpdatedDescending(all))
-      if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
-      if (index?.postTypes) setPostTypes(index.postTypes)
-      if (index?.homeSlug) document.title = index.title
-    })
   }, [connected])
 
   function loadPost(meta: GardenPostMeta): void {
@@ -900,7 +928,7 @@ export function App() {
     setExcerpt(meta.excerpt)
     setStatus(meta.status)
     setPostDate(meta.publishedAt ? meta.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
-    const mt = (meta.mediaType ?? 'text/markdown') as 'text/markdown' | 'text/html' | 'text/plain'
+    const mt = normalizeEditorMediaType(meta.mediaType)
     setMediaType(mt)
     setOriginalMediaType(mt)
     setPostType(meta.postType ?? getDefaultType(postTypes))

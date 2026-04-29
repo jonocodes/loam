@@ -332,7 +332,6 @@ export async function seedGarden(): Promise<boolean> {
     storePostMarkdown(firstPostSlug, SEED_FIRST_POST_CONTENT, undefined),
   ])
 
-  await publishPost(welcomeSlug)
   await saveSiteSettings('My Garden', '', '', 'e2', DEFAULT_POST_TYPES, welcomeSlug)
   await storeGardenSetting('seeded', 'true')
 

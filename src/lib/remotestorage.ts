@@ -16,6 +16,48 @@ if (dropboxAppKey || googleClientId) {
   })
 }
 
+const EXTRA_DROPBOX_SCOPES = ['sharing.read', 'sharing.write'] as const
+
+type OAuthAuthorizeOptions = {
+  authURL?: string
+  scope?: string
+}
+
+type OAuthAuthorize = (...args: unknown[]) => unknown
+
+function mergeScopes(base: string | undefined, extras: readonly string[]): string {
+  const merged = new Set(
+    `${base ?? ''} ${extras.join(' ')}`
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean),
+  )
+  return [...merged].join(' ')
+}
+
+function patchDropboxAuthorizeScopes(): void {
+  const target = rs as unknown as { authorize?: OAuthAuthorize }
+  const originalAuthorize = target.authorize
+  if (typeof originalAuthorize !== 'function') return
+
+  target.authorize = function patchedAuthorize(this: unknown, ...args: unknown[]) {
+    const maybeOptions = args[0]
+    const options =
+      typeof maybeOptions === 'object' && maybeOptions !== null ? (maybeOptions as OAuthAuthorizeOptions) : undefined
+    const isDropboxAuthorize = options?.authURL?.includes('dropbox.com/oauth2/authorize')
+    if (isDropboxAuthorize) {
+      const patchedOptions: OAuthAuthorizeOptions = {
+        ...options,
+        scope: mergeScopes(options?.scope, EXTRA_DROPBOX_SCOPES),
+      }
+      return originalAuthorize.apply(this, [patchedOptions, ...args.slice(1)])
+    }
+    return originalAuthorize.apply(this, args)
+  }
+}
+
+patchDropboxAuthorizeScopes()
+
 const RS_MODULE = import.meta.env.VITE_RS_MODULE ?? 'loam'
 const PUBLIC_DIR = import.meta.env.VITE_PUBLIC_DIR ?? RS_MODULE
 
@@ -43,6 +85,71 @@ function scopedItemUrl(client: { getItemURL(path: string): unknown }, path: stri
 
 function itemUrl(path: string): string | null {
   return scopedItemUrl(publicClient(), path)
+}
+
+function normalizeDropboxPath(path: string): string {
+  const trimmed = path.trim()
+  if (!trimmed) return '/'
+  const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+  const normalized = withLeadingSlash.replace(/\/{2,}/g, '/')
+  if (normalized.length > 1 && normalized.endsWith('/')) {
+    return normalized.slice(0, -1)
+  }
+  return normalized
+}
+
+function assertNoParentTraversal(path: string): void {
+  const segments = path.split('/').filter(Boolean)
+  if (segments.includes('..')) {
+    throw new Error(`Invalid Dropbox path segment in "${path}"`)
+  }
+}
+
+let dropboxPublicRootPrefix: '' | '/remotestorage' | null = null
+
+function getDropboxPathCandidates(path: string): string[] {
+  const normalized = normalizeDropboxPath(path)
+  const candidates: string[] = []
+
+  if (normalized.startsWith('/public/')) {
+    const bare = normalized
+    const prefixed = `/remotestorage${normalized}`
+    if (dropboxPublicRootPrefix === '/remotestorage') {
+      candidates.push(prefixed, bare)
+    } else if (dropboxPublicRootPrefix === '') {
+      candidates.push(bare, prefixed)
+    } else {
+      candidates.push(bare, prefixed)
+    }
+  } else {
+    candidates.push(normalized)
+  }
+
+  return [...new Set(candidates)]
+}
+
+function rememberDropboxPathVariant(path: string): void {
+  if (path.startsWith('/remotestorage/public/')) {
+    dropboxPublicRootPrefix = '/remotestorage'
+  } else if (path.startsWith('/public/')) {
+    dropboxPublicRootPrefix = ''
+  }
+}
+
+function toTextData(data: unknown): string | null {
+  if (typeof data === 'string') return data
+  if (data instanceof ArrayBuffer) return new TextDecoder().decode(data)
+  return null
+}
+
+function parseJsonData<T>(data: unknown): T | null {
+  if (!data) return null
+  if (typeof data === 'object' && !(data instanceof ArrayBuffer) && !(data instanceof Blob)) {
+    return data as T
+  }
+  const text = toTextData(data)
+  if (!text) return null
+  return JSON.parse(text) as T
 }
 
 const POSTS_PATH = 'posts/'
@@ -90,16 +197,43 @@ export async function checkDropboxSharingAccess(): Promise<string | null> {
   if (getActiveBackend() !== 'dropbox') return null
   const token = getRemoteToken()
   if (!token) return 'Dropbox connected, but no auth token is available. Try disconnecting and reconnecting.'
+  const sharingProbePaths = getDropboxPathCandidates(`/public/${PUBLIC_DIR}`)
+  for (const path of sharingProbePaths) assertNoParentTraversal(path)
 
-  const res = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ path: `/public/${PUBLIC_DIR}/`, direct_only: true }),
-  })
-  if (res.ok) return null
+  async function listSharedLinksProbe(path?: string): Promise<Response> {
+    return fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(path ? { path, direct_only: true } : { direct_only: true }),
+    })
+  }
+
+  let res: Response | null = null
+  for (const path of sharingProbePaths) {
+    const candidateRes = await listSharedLinksProbe(path)
+    if (candidateRes.ok) return null
+
+    let candidateSummary = ''
+    try {
+      const body = (await candidateRes.json()) as { error_summary?: string }
+      if (typeof body.error_summary === 'string') candidateSummary = body.error_summary
+    } catch {
+      // Ignore parse failures and keep trying.
+    }
+
+    // Keep trying alternate storage roots for any path-specific conflicts.
+    if (candidateRes.status === 409 && candidateSummary.includes('path/')) {
+      res = candidateRes
+      continue
+    }
+    res = candidateRes
+    break
+  }
+
+  if (!res) return null
 
   let summary = ''
   try {
@@ -108,6 +242,21 @@ export async function checkDropboxSharingAccess(): Promise<string | null> {
   } catch {
     // Ignore parse failures and keep a status-based warning.
   }
+
+  // Dropbox can reject some folder paths as malformed even when sharing scopes are valid.
+  // Retry without path so we can still verify auth/scopes and avoid false warnings.
+  if (res.status === 409 && summary.includes('malformed_path')) {
+    res = await listSharedLinksProbe()
+    if (res.ok) return null
+    summary = ''
+    try {
+      const body = (await res.json()) as { error_summary?: string }
+      if (typeof body.error_summary === 'string') summary = ` (${body.error_summary})`
+    } catch {
+      // Ignore parse failures and keep a status-based warning.
+    }
+  }
+
   if (res.status === 401 || res.status === 403) {
     return `Dropbox sharing is unavailable (${res.status}${summary}). Add sharing.read and sharing.write in your Dropbox app, then disconnect and reconnect to refresh the token scopes.`
   }
@@ -115,60 +264,90 @@ export async function checkDropboxSharingAccess(): Promise<string | null> {
 }
 
 async function createDropboxSharedLink(dropboxPath: string, token: string): Promise<string> {
-  async function listExistingLink(): Promise<string | null> {
-    const lookup = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+  const pathCandidates = getDropboxPathCandidates(dropboxPath)
+  const isPathConflict = (summary: string): boolean => summary.includes('path/')
+
+  async function listExistingLink(paths: string[]): Promise<string | null> {
+    for (const path of paths) {
+      const lookup = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ path, direct_only: true }),
+      })
+      if (!lookup.ok) continue
+      const links = (await lookup.json()) as { links?: Array<{ url?: string }> }
+      const existingUrl = links.links?.[0]?.url
+      if (typeof existingUrl === 'string') {
+        rememberDropboxPathVariant(path)
+        return dropboxToDirectUrl(existingUrl)
+      }
+    }
+    return null
+  }
+
+  let lastError: string | null = null
+  for (const path of pathCandidates) {
+    const res = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ path: dropboxPath, direct_only: true }),
+      body: JSON.stringify({ path, settings: { requested_visibility: 'public' } }),
     })
-    if (!lookup.ok) return null
-    const links = (await lookup.json()) as { links?: Array<{ url?: string }> }
-    const existingUrl = links.links?.[0]?.url
-    return typeof existingUrl === 'string' ? dropboxToDirectUrl(existingUrl) : null
+
+    if (res.status === 409) {
+      const body = (await res.json()) as {
+        error?: { '.tag': string; shared_link_already_exists?: { metadata: { url: string } } }
+        error_summary?: string
+      }
+      const existing = body.error?.shared_link_already_exists?.metadata.url
+      if (existing) {
+        rememberDropboxPathVariant(path)
+        return dropboxToDirectUrl(existing)
+      }
+      const fallback = await listExistingLink([path])
+      if (fallback) return fallback
+      const summary = typeof body.error_summary === 'string' ? ` (${body.error_summary})` : ''
+      // If this variant has path-related conflicts, try the next path candidate.
+      if (isPathConflict(summary)) {
+        lastError = `Dropbox sharing API conflict: unable to reuse existing link${summary}`
+        continue
+      }
+      throw new Error(`Dropbox sharing API conflict: unable to reuse existing link${summary}`)
+    }
+
+    if (!res.ok) {
+      let summary = ''
+      try {
+        const body = (await res.json()) as { error_summary?: string }
+        if (typeof body.error_summary === 'string') summary = ` (${body.error_summary})`
+      } catch {
+        // Ignore parse failures and keep a status-based error message.
+      }
+      if (res.status === 401) {
+        throw new Error(
+          'Dropbox sharing API error: 401. Your Dropbox token likely lacks sharing scopes. Add sharing.read and sharing.write in the Dropbox app settings, then disconnect and reconnect Dropbox.',
+        )
+      }
+      if (res.status === 409 && isPathConflict(summary)) {
+        lastError = `Dropbox sharing API error: ${res.status}${summary}`
+        continue
+      }
+      throw new Error(`Dropbox sharing API error: ${res.status}${summary}`)
+    }
+
+    const data = (await res.json()) as { url: string }
+    rememberDropboxPathVariant(path)
+    return dropboxToDirectUrl(data.url)
   }
 
-  const res = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ path: dropboxPath, settings: { requested_visibility: 'public' } }),
-  })
-
-  if (res.status === 409) {
-    const body = (await res.json()) as {
-      error?: { '.tag': string; shared_link_already_exists?: { metadata: { url: string } } }
-      error_summary?: string
-    }
-    const existing = body.error?.shared_link_already_exists?.metadata.url
-    if (existing) return dropboxToDirectUrl(existing)
-    const fallback = await listExistingLink()
-    if (fallback) return fallback
-    const summary = typeof body.error_summary === 'string' ? ` (${body.error_summary})` : ''
-    throw new Error(`Dropbox sharing API conflict: unable to reuse existing link${summary}`)
-  }
-
-  if (!res.ok) {
-    let summary = ''
-    try {
-      const body = (await res.json()) as { error_summary?: string }
-      if (typeof body.error_summary === 'string') summary = ` (${body.error_summary})`
-    } catch {
-      // Ignore parse failures and keep a status-based error message.
-    }
-    if (res.status === 401) {
-      throw new Error(
-        'Dropbox sharing API error: 401. Your Dropbox token likely lacks sharing scopes. Add sharing.read and sharing.write in the Dropbox app settings, then disconnect and reconnect Dropbox.',
-      )
-    }
-    throw new Error(`Dropbox sharing API error: ${res.status}${summary}`)
-  }
-  const data = (await res.json()) as { url: string }
-  return dropboxToDirectUrl(data.url)
+  const fallback = await listExistingLink(pathCandidates)
+  if (fallback) return fallback
+  throw new Error(lastError ?? 'Dropbox sharing API error: unable to create or find shared link')
 }
 
 function dropboxToDirectUrl(url: string): string {
@@ -247,7 +426,9 @@ export async function resolvePublicFileUrl(publicFilePath: string): Promise<stri
     const token = getRemoteToken()
     if (!token) return null
     try {
-      return await createDropboxSharedLink(`/public/${PUBLIC_DIR}/${publicFilePath}`, token)
+      const dropboxPath = normalizeDropboxPath(`/public/${PUBLIC_DIR}/${publicFilePath}`)
+      assertNoParentTraversal(dropboxPath)
+      return await createDropboxSharedLink(dropboxPath, token)
     } catch {
       return null
     }
@@ -393,7 +574,7 @@ export async function storeFeedAtom(xml: string): Promise<void> {
 
 export async function storeGardenSetting(key: string, value: string): Promise<void> {
   const result = await privateClient().getFile(SETTINGS_PATH)
-  const current = result?.data ? (JSON.parse(result.data as string) as Record<string, string>) : {}
+  const current = parseJsonData<Record<string, string>>(result?.data) ?? {}
   current[key] = value
 
   await privateClient().storeFile('application/json', SETTINGS_PATH, JSON.stringify(current))
@@ -404,7 +585,7 @@ export async function pullGardenSetting(key: string): Promise<string | null> {
   if (!result?.data) return null
 
   try {
-    const settings = JSON.parse(result.data as string)
+    const settings = parseJsonData<Record<string, unknown>>(result.data)
     if (typeof settings !== 'object' || settings === null) return null
     const value = (settings as Record<string, unknown>)[key]
     return typeof value === 'string' ? value : null

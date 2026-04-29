@@ -5,12 +5,13 @@ import {
   checkDropboxSharingAccess,
   getGardenSettingsUrl,
   loadPublicIndexUrl,
+  pullAllPostMeta,
   pullGardenSetting,
   pullIndex,
   resolvePublicFeedAtomUrl,
   resolvePublicFeedUrl,
 } from '../lib/remotestorage'
-import type { GardenIndexEntry, PostTypeConfig } from '../lib/schema'
+import type { GardenPostMeta, PostTypeConfig } from '../lib/schema'
 import { DEFAULT_POST_TYPES } from '../lib/schema'
 import { useStackTheme } from './StackLayout'
 
@@ -28,7 +29,7 @@ export function SettingsView({ onSave }: Props = {}) {
   const [urlEncoding, setUrlEncoding] = useState<'e1' | 'e2'>('e2')
   const [postTypes, setPostTypes] = useState<PostTypeConfig[]>(DEFAULT_POST_TYPES)
   const [homeSlug, setHomeSlug] = useState('')
-  const [publishedPosts, setPublishedPosts] = useState<GardenIndexEntry[]>([])
+  const [homeCandidates, setHomeCandidates] = useState<GardenPostMeta[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -44,18 +45,19 @@ export function SettingsView({ onSave }: Props = {}) {
       pullGardenSetting('title').catch(() => null),
       pullGardenSetting('tagline').catch(() => null),
       pullIndex().catch(() => null),
+      pullAllPostMeta().catch(() => [] as GardenPostMeta[]),
       loadPublicIndexUrl().catch(() => null),
       resolvePublicFeedUrl().catch(() => null),
       resolvePublicFeedAtomUrl().catch(() => null),
       checkDropboxSharingAccess().catch(() => null),
-    ]).then(([t, tl, index, indexUrl, feedUrl, atomUrl, sharingWarning]) => {
+    ]).then(([t, tl, index, allMeta, indexUrl, feedUrl, atomUrl, sharingWarning]) => {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
       if (index?.urlEncoding) setUrlEncoding(index.urlEncoding)
       if (index?.postTypes) setPostTypes(index.postTypes)
       if (index?.homeSlug) setHomeSlug(index.homeSlug)
-      if (index?.posts) setPublishedPosts(index.posts)
+      setHomeCandidates(allMeta.filter((p) => p.status !== 'deleted'))
       setPublicIndexUrl(indexUrl ?? null)
       setPublicFeedUrl(feedUrl ?? null)
       setPublicFeedAtomUrl(atomUrl ?? null)
@@ -171,8 +173,11 @@ export function SettingsView({ onSave }: Props = {}) {
             style={{ ...fieldStyle, fontFamily: MONO, fontSize: 11, cursor: 'pointer' }}
           >
             <option value="">— show index —</option>
-            {publishedPosts.map((p) => (
-              <option key={p.slug} value={p.slug}>{p.title || p.slug}</option>
+            {homeCandidates.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.title || p.slug}
+                {p.status !== 'published' ? ` (${p.status})` : ''}
+              </option>
             ))}
           </select>
           <span style={{ fontSize: 11, color: theme.dim, fontFamily: MONO }}>
