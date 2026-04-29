@@ -24,10 +24,10 @@ For more space and control you can host your own remoteStorage server, like [arm
 - Markdown editor with live preview and syntax highlighting (CodeMirror)
 - HTML and plain text post formats — toggled per post, file extension updates automatically
 - Auto title and excerpt parsing from markdown headings
-- Editable slug field, auto-generated from title on first save; renaming renames the underlying files
+- Editable slug field, auto-generated from title on first save; renaming renames the underlying files and updates all cross-references in other posts
 - Draft / published / unpublished post states
 - Tags per post (comma-separated, filterable in sidebar and public index)
-- Post types: `writing`, `document`, `welcome` — shown as separate sidebar sections
+- User-defined post types with configurable sidebar order, visibility, and title display
 - Picks: mark any post as a pick; up to 5 shown in a curated section on the public index
 - Image uploads with inline insertion; stored in your cloud storage
 
@@ -138,6 +138,29 @@ With this in place:
 
 
 
+## Post organization
+
+### Post types
+
+Post types are user-defined labels (e.g. `posts`, `pages`, `notes`). Each type can be configured in Settings:
+
+| Option | Description |
+|---|---|
+| Name | The type label — used in the sidebar and as the `?type=` filter parameter |
+| Default | New posts are assigned this type automatically |
+| Sidebar | Whether this type appears as a section in the sidebar |
+| Hide title | Show posts of this type without a section heading (useful for pages integrated into the nav) |
+
+Post types are stored in `index.json` so the public site respects the same order and visibility. Posts with an unrecognized type fall back to the default type in the sidebar.
+
+### Picks
+
+Any post can be marked as a **pick** (`★ pick` checkbox in the editor). Up to 5 picks appear as a curated section at the top of the public index, above the type sections. Useful for surfacing favorite or evergreen posts.
+
+### Home page
+
+A single post can be designated as the home page in Settings. When set, visitors arriving at the public garden root are redirected to that post. The index is still accessible at all times via the "All posts" link.
+
 ## Settings
 
 Accessible at `/write` via the Settings tab.
@@ -146,8 +169,10 @@ Accessible at `/write` via the Settings tab.
 |---|---|
 | Site title | Displayed on the public home page and used as the HTML `<title>` |
 | Tagline | Subtitle shown below the title on the public home page |
+| Home page | Post to show when visitors arrive at the root URL; defaults to the index |
 | URL prefix | Human-readable segment added before the encoded token in public URLs |
 | URL encoding | `e2` (base64, default) or `e1` (plain URL encoding) |
+| Post types | Ordered list of post types with sidebar and display options |
 
 Settings are stored in `settings/garden.json` (private) and also written into the public `index.json`.
 
@@ -197,16 +222,22 @@ npm run generate-schema
   "version": 1,
   "title": "My Garden",
   "tagline": "Notes from the field",
+  "homeSlug": "2026-04-25-welcome",
   "urlPrefix": "yourname",
   "urlEncoding": "e2",
+  "postTypes": [
+    { "name": "posts", "showInSidebar": true, "isDefault": true, "hideTitle": false },
+    { "name": "pages", "showInSidebar": true, "isDefault": false, "hideTitle": false }
+  ],
   "updatedAt": "2026-04-25T12:00:00Z",
   "posts": [
     {
       "slug": "2026-04-25-getting-started",
-      "date": "2026-04-25",
       "title": "Getting Started",
       "excerpt": "A short summary",
       "tags": ["intro"],
+      "postType": "posts",
+      "favorite": false,
       "publishedAt": "2026-04-25T11:00:00Z",
       "updatedAt": "2026-04-25T12:00:00Z",
       "contentUrl": "https://<storage-host>/public/loam/posts/2026-04-25-getting-started.md"
@@ -215,7 +246,9 @@ npm run generate-schema
 }
 ```
 
-Optional post fields: `tags` (array of strings), `mediaType` (defaults to `text/markdown`).
+Optional index fields: `tagline`, `homeSlug`, `urlPrefix`, `urlEncoding`, `postTypes`.
+
+Optional post fields: `tags` (array of strings), `postType` (string), `favorite` (boolean), `mediaType` (defaults to `text/markdown`).
 
 
 ## Post state machine

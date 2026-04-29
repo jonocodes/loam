@@ -1,4 +1,4 @@
-import type { GardenIndex, GardenIndexEntry, GardenPostMeta, MediaIndex, MediaItem } from './schema'
+import type { GardenIndex, GardenIndexEntry, GardenPostMeta, MediaIndex, MediaItem, PostTypeConfig } from './schema'
 
 export function createEmptyIndex(title = 'Loam', tagline?: string, now = new Date().toISOString()): GardenIndex {
   return {
@@ -90,6 +90,8 @@ export function rebuildIndexFromPublishedMeta(
   tagline?: string,
   urlPrefix?: string,
   urlEncoding?: 'e1' | 'e2',
+  postTypes?: PostTypeConfig[],
+  homeSlug?: string,
   now = new Date().toISOString(),
 ): GardenIndex {
   const posts = metaRecords
@@ -105,8 +107,10 @@ export function rebuildIndexFromPublishedMeta(
     version: 1,
     title,
     ...(tagline !== undefined ? { tagline } : {}),
+    ...(homeSlug !== undefined ? { homeSlug } : {}),
     ...(urlPrefix !== undefined ? { urlPrefix } : {}),
     ...(urlEncoding !== undefined ? { urlEncoding } : {}),
+    ...(postTypes !== undefined ? { postTypes } : {}),
     updatedAt: now,
     posts: sortPostsDescendingByPublishedAt(posts),
   }

@@ -5,13 +5,52 @@ import {
   publishMeta,
   rebuildIndexFromPublishedMeta,
   removeIndexEntry,
+  sortPostsDescendingByPublishedAt,
   toAtomFeed,
   toIndexEntry,
   toJsonFeed,
   unpublishMeta,
   upsertIndexEntry,
 } from '../lib/gardenIndex'
-import type { GardenPostMeta } from '../lib/schema'
+import type { GardenIndexEntry, GardenPostMeta } from '../lib/schema'
+
+describe('sortPostsDescendingByPublishedAt', () => {
+  const entry = (slug: string, publishedAt: string): GardenIndexEntry => ({
+    slug,
+    title: slug,
+    excerpt: '',
+    publishedAt,
+    updatedAt: publishedAt,
+    contentUrl: `https://example.com/${slug}.md`,
+  })
+
+  it('sorts posts newest first', () => {
+    const sorted = sortPostsDescendingByPublishedAt([
+      entry('old', '2026-01-01T00:00:00Z'),
+      entry('new', '2026-04-01T00:00:00Z'),
+      entry('mid', '2026-02-01T00:00:00Z'),
+    ])
+    expect(sorted.map((p) => p.slug)).toEqual(['new', 'mid', 'old'])
+  })
+
+  it('returns empty array unchanged', () => {
+    expect(sortPostsDescendingByPublishedAt([])).toEqual([])
+  })
+
+  it('returns single-item array unchanged', () => {
+    const result = sortPostsDescendingByPublishedAt([entry('only', '2026-01-01T00:00:00Z')])
+    expect(result).toHaveLength(1)
+  })
+
+  it('does not mutate the original array', () => {
+    const original = [
+      entry('b', '2026-02-01T00:00:00Z'),
+      entry('a', '2026-01-01T00:00:00Z'),
+    ]
+    sortPostsDescendingByPublishedAt(original)
+    expect(original[0].slug).toBe('b')
+  })
+})
 
 describe('garden index helpers', () => {
   const baseMeta: GardenPostMeta = {
@@ -92,6 +131,20 @@ describe('garden index helpers', () => {
     expect(entry.mediaType).toBe('text/html')
   })
 
+  it('propagates postType and favorite into index entry', () => {
+    const meta = publishMeta({ ...baseMeta, postType: 'pages', favorite: true }, '2026-04-22T12:00:00Z')
+    const entry = toIndexEntry(meta, 'https://example.com/post.md')
+    expect(entry.postType).toBe('pages')
+    expect(entry.favorite).toBe(true)
+  })
+
+  it('omits postType and favorite from index entry when not set', () => {
+    const meta = publishMeta(baseMeta, '2026-04-22T12:00:00Z')
+    const entry = toIndexEntry(meta, 'https://example.com/post.md')
+    expect(entry.postType).toBeUndefined()
+    expect(entry.favorite).toBeUndefined()
+  })
+
   it('generates Atom feed XML with correct structure', () => {
     const index = upsertIndexEntry(createEmptyIndex('My Blog'), {
       slug: '2026-04-26-hello',
@@ -130,6 +183,58 @@ describe('garden index helpers', () => {
     expect(entry.mediaType).toBeUndefined()
   })
 
+  it('preserves homeSlug through rebuild', () => {
+    const published = publishMeta(baseMeta, '2026-04-22T12:00:00Z')
+    const rebuilt = rebuildIndexFromPublishedMeta(
+      [published],
+      (slug) => `https://example.com/${slug}.md`,
+      'Blog',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      '2026-04-22-post-1',
+      '2026-04-22T15:00:00Z',
+    )
+    expect(rebuilt.homeSlug).toBe('2026-04-22-post-1')
+  })
+
+  it('omits homeSlug from rebuilt index when not provided', () => {
+    const published = publishMeta(baseMeta, '2026-04-22T12:00:00Z')
+    const rebuilt = rebuildIndexFromPublishedMeta(
+      [published],
+      (slug) => `https://example.com/${slug}.md`,
+      'Blog',
+    )
+    expect(rebuilt.homeSlug).toBeUndefined()
+  })
+
+  it('toAtomFeed includes multiple entries in correct order', () => {
+    const base = createEmptyIndex('Blog')
+    const withTwo = upsertIndexEntry(
+      upsertIndexEntry(base, {
+        slug: 'older',
+        title: 'Older',
+        excerpt: 'Old',
+        publishedAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+        contentUrl: 'https://example.com/older.md',
+      }),
+      {
+        slug: 'newer',
+        title: 'Newer',
+        excerpt: 'New',
+        publishedAt: '2026-04-01T00:00:00Z',
+        updatedAt: '2026-04-01T00:00:00Z',
+        contentUrl: 'https://example.com/newer.md',
+      },
+    )
+    const xml = toAtomFeed(withTwo)
+    const newerIdx = xml.indexOf('Newer')
+    const olderIdx = xml.indexOf('Older')
+    expect(newerIdx).toBeLessThan(olderIdx)
+  })
+
   it('rebuilds index from published metadata only and checks content URL existence', () => {
     const publishedOne = publishMeta(baseMeta, '2026-04-22T12:00:00Z')
     const publishedTwo = publishMeta(
@@ -147,6 +252,8 @@ describe('garden index helpers', () => {
       [publishedOne, publishedTwo, draft],
       (slug) => (slug === '2026-04-22-post-2' ? null : `https://example.com/${slug}.md`),
       'Blog',
+      undefined,
+      undefined,
       undefined,
       undefined,
       undefined,

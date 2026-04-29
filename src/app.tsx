@@ -5,7 +5,7 @@ import { MediaPanel } from './components/MediaPanel'
 import { SettingsView } from './components/SettingsView'
 import type { StackTheme } from './components/StackLayout'
 import { StackLayout, useStackTheme } from './components/StackLayout'
-import { deletePost, generateSlug, publishPost, unpublishPost } from './lib/gardenService'
+import { deletePost, generateSlug, publishPost, rewritePostReferences, seedGarden, syncPublishedPost, unpublishPost } from './lib/gardenService'
 import { parseMarkdownToPost } from './lib/markdown'
 import { buildPublicHomeUrl, buildPublicPostUrl } from './lib/publicUrls'
 import {
@@ -25,12 +25,17 @@ import {
   storePostMeta,
 } from './lib/remotestorage'
 import { matchRoute } from './lib/routes'
-import type { GardenPostMeta } from './lib/schema'
+import type { GardenPostMeta, PostTypeConfig } from './lib/schema'
+import { DEFAULT_POST_TYPES } from './lib/schema'
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
 function sortByUpdatedDescending(items: GardenPostMeta[]): GardenPostMeta[] {
   return [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+function getDefaultType(types: PostTypeConfig[]): string {
+  return types.find((t) => t.isDefault)?.name ?? types[0]?.name ?? 'posts'
 }
 
 // ── Admin sidebar ─────────────────────────────────────────────────────────────
@@ -50,6 +55,7 @@ interface SidebarProps {
   onSettings: () => void
   publicHomePageUrl: string | null
   view: 'posts' | 'settings'
+  postTypes: PostTypeConfig[]
 }
 
 function AdminSidebar({
@@ -67,12 +73,15 @@ function AdminSidebar({
   onSettings,
   publicHomePageUrl,
   view,
+  postTypes,
 }: SidebarProps) {
   const taggedItems = tagFilter ? items.filter((i) => i.tags?.includes(tagFilter)) : items
-  const pickItems = items.filter((i) => i.favorite)
-  const writingItems = taggedItems.filter((i) => (i.postType ?? 'writing') === 'writing')
-  const documentItems = taggedItems.filter((i) => i.postType === 'document')
-  const welcomeItems = taggedItems.filter((i) => i.postType === 'welcome')
+  const pickItems = taggedItems.filter((i) => i.favorite)
+  const defaultType = getDefaultType(postTypes)
+
+  function effectiveType(item: GardenPostMeta): string {
+    return item.postType && postTypes.some((t) => t.name === item.postType) ? item.postType : defaultType
+  }
 
   function renderPostButton(item: GardenPostMeta) {
     return (
@@ -108,25 +117,37 @@ function AdminSidebar({
     )
   }
 
-  function renderSection(label: string, sectionItems: GardenPostMeta[]) {
+  function renderSection(label: string, sectionItems: GardenPostMeta[], sectionUrl?: string | null, hideTitle?: boolean) {
     if (sectionItems.length === 0) return null
     return (
       <div style={{ marginBottom: 4 }}>
-        <div
-          style={{ padding: '6px 14px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              color: theme.dim,
-              fontFamily: MONO,
-              letterSpacing: 0.8,
-              textTransform: 'uppercase' as const,
-            }}
+        {!hideTitle && (
+          <div
+            style={{ padding: '6px 14px 2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
           >
-            {label}
-          </span>
-        </div>
+            <span
+              style={{
+                fontSize: 10,
+                color: theme.dim,
+                fontFamily: MONO,
+                letterSpacing: 0.8,
+                textTransform: 'uppercase' as const,
+              }}
+            >
+              {label}
+            </span>
+            {sectionUrl && (
+              <a
+                href={sectionUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: 10, color: theme.accent, fontFamily: MONO, textDecoration: 'none' }}
+              >
+                ↗
+              </a>
+            )}
+          </div>
+        )}
         <div style={{ padding: '0 6px' }}>{sectionItems.map((item) => renderPostButton(item))}</div>
       </div>
     )
@@ -231,20 +252,20 @@ function AdminSidebar({
             {tagFilter && taggedItems.length === 0 && items.length > 0 && (
               <div style={{ padding: '8px 14px', color: theme.dim, fontSize: 12 }}>No posts with this tag.</div>
             )}
-            {renderSection('welcome', welcomeItems)}
-            {welcomeItems.length > 0 &&
-              (pickItems.length > 0 || writingItems.length > 0 || documentItems.length > 0) && (
-                <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-              )}
-            {renderSection('★ picks', pickItems)}
-            {pickItems.length > 0 && (writingItems.length > 0 || documentItems.length > 0) && (
-              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-            )}
-            {renderSection('writings', writingItems)}
-            {documentItems.length > 0 && writingItems.length > 0 && (
-              <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-            )}
-            {renderSection('documents', documentItems)}
+            {renderSection('★ picks', pickItems, null)}
+            {postTypes.filter((t) => t.showInSidebar).map((t) => {
+              const typeItems = [...taggedItems.filter((i) => effectiveType(i) === t.name)].sort((a, b) => a.slug.localeCompare(b.slug))
+              return (
+                <div key={t.name}>
+                  {renderSection(
+                    t.name.charAt(0).toUpperCase() + t.name.slice(1),
+                    typeItems,
+                    publicHomePageUrl ? `${publicHomePageUrl}?type=${t.name}` : null,
+                    t.hideTitle,
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -333,8 +354,9 @@ interface EditorProps {
   setPostDate: (v: string) => void
   mediaType: 'text/markdown' | 'text/html' | 'text/plain'
   setMediaType: (v: 'text/markdown' | 'text/html' | 'text/plain') => void
-  postType: 'writing' | 'document' | 'welcome'
-  setPostType: (v: 'writing' | 'document' | 'welcome') => void
+  postType: string
+  setPostType: (v: string) => void
+  postTypes: PostTypeConfig[]
   favorite: boolean
   setFavorite: (v: boolean) => void
   body: string
@@ -367,6 +389,7 @@ function AdminEditor({
   setMediaType,
   postType,
   setPostType,
+  postTypes,
   favorite,
   setFavorite,
   body,
@@ -481,31 +504,31 @@ function AdminEditor({
 
         <div>
           <div style={labelStyle}>type</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {(['writing', 'document', 'welcome'] as const).map((v) => (
-              <label
-                key={v}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  color: postType === v ? theme.ink : theme.dim,
-                }}
-              >
-                <input
-                  type="radio"
-                  name="postType"
-                  value={v}
-                  checked={postType === v}
-                  onChange={() => setPostType(v)}
-                  style={{ accentColor: theme.accent }}
-                />
-                {v}
-              </label>
+          <select
+            value={postType}
+            onChange={(e) => setPostType(e.target.value)}
+            style={{
+              background: 'none',
+              border: 'none',
+              borderBottom: `1px solid ${theme.rule}`,
+              outline: 'none',
+              color: theme.ink,
+              fontFamily: MONO,
+              fontSize: 11,
+              padding: '4px 0',
+              width: '100%',
+              cursor: 'pointer',
+            }}
+          >
+            {postTypes.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name}
+              </option>
             ))}
-          </div>
+            {!postTypes.some((t) => t.name === postType) && postType && (
+              <option value={postType}>{postType}</option>
+            )}
+          </select>
         </div>
 
         <div>
@@ -787,10 +810,9 @@ export function App() {
   const [postDate, setPostDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [status, setStatus] = useState<GardenPostMeta['status']>('draft')
   const [mediaType, setMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
-  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>(
-    'text/markdown',
-  )
-  const [postType, setPostType] = useState<'writing' | 'document' | 'welcome'>('writing')
+  const [originalMediaType, setOriginalMediaType] = useState<'text/markdown' | 'text/html' | 'text/plain'>('text/markdown')
+  const [postTypes, setPostTypes] = useState<PostTypeConfig[]>(DEFAULT_POST_TYPES)
+  const [postType, setPostType] = useState<string>('posts')
   const [favorite, setFavorite] = useState(false)
   const [tagsInput, setTagsInput] = useState<string>('')
   const [tagFilter, setTagFilter] = useState<string | null>(null)
@@ -839,17 +861,12 @@ export function App() {
       if (!cancelled) setWellKnownIndexUrl(u)
     })
     void pullAllPostMeta()
-      .then((all) => {
-        if (!cancelled) setItems(sortByUpdatedDescending(all))
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err))
-      })
-    void pullGardenSetting('title').then((t) => {
-      if (!cancelled && t) document.title = t
-    })
+      .then((all) => { if (!cancelled) setItems(sortByUpdatedDescending(all)) })
+      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)) })
+    void pullGardenSetting('title').then((t) => { if (!cancelled && t) document.title = t })
     void pullIndex().then((index) => {
       if (!cancelled && index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+      if (!cancelled && index?.postTypes) setPostTypes(index.postTypes)
     })
 
     return () => {
@@ -866,6 +883,14 @@ export function App() {
     void loadPublicIndexUrl()
       .then(setPublicIndexUrl)
       .catch(() => setPublicIndexUrl(null))
+    void seedGarden().then(async (seeded) => {
+      if (!seeded) return
+      const [all, index] = await Promise.all([pullAllPostMeta(), pullIndex()])
+      setItems(sortByUpdatedDescending(all))
+      if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
+      if (index?.postTypes) setPostTypes(index.postTypes)
+      if (index?.homeSlug) document.title = index.title
+    })
   }, [connected])
 
   function loadPost(meta: GardenPostMeta): void {
@@ -878,7 +903,7 @@ export function App() {
     const mt = (meta.mediaType ?? 'text/markdown') as 'text/markdown' | 'text/html' | 'text/plain'
     setMediaType(mt)
     setOriginalMediaType(mt)
-    setPostType(meta.postType ?? 'writing')
+    setPostType(meta.postType ?? getDefaultType(postTypes))
     setFavorite(meta.favorite ?? false)
     setTagsInput(meta.tags?.join(', ') ?? '')
     setMessage('')
@@ -900,7 +925,7 @@ export function App() {
     setStatus('draft')
     setMediaType('text/markdown')
     setOriginalMediaType('text/markdown')
-    setPostType('writing')
+    setPostType(getDefaultType(postTypes))
     setFavorite(false)
     setTagsInput('')
     setError('')
@@ -986,12 +1011,17 @@ export function App() {
         await storePostMarkdown(resolvedSlug, parsedBody, mediaType)
         await removePostMarkdown(originalSlug, originalMediaType)
         if (slugChanged) await removePostMeta(originalSlug)
-        setMessage(nextStatus === 'published' ? 'Saved. Republish to update public site.' : 'Saved')
+        await rewritePostReferences(originalSlug, originalMediaType, resolvedSlug, mediaType)
       } else {
         await storePostMeta(meta)
         await storePostMarkdown(resolvedSlug, parsedBody, mediaType)
-        setMessage('Saved')
       }
+
+      if (nextStatus === 'published') {
+        await syncPublishedPost(meta, slugChanged && originalSlug ? originalSlug : undefined)
+      }
+
+      setMessage('Saved')
 
       setSlug(resolvedSlug)
       setOriginalSlug(resolvedSlug)
@@ -1071,6 +1101,7 @@ export function App() {
             onSettings={() => setView('settings')}
             publicHomePageUrl={publicHomePageUrl}
             view={view}
+            postTypes={postTypes}
           />
         }
       >
@@ -1092,6 +1123,7 @@ export function App() {
             setMediaType={setMediaType}
             postType={postType}
             setPostType={setPostType}
+            postTypes={postTypes}
             favorite={favorite}
             setFavorite={setFavorite}
             body={body}

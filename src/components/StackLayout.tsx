@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { navigate } from '../lib/navigate'
 import { buildBackLinkUrl, buildPostLinkUrl } from '../lib/publicUrls'
-import type { GardenIndex, GardenIndexEntry } from '../lib/schema'
+import type { GardenIndex, GardenIndexEntry, PostTypeConfig } from '../lib/schema'
 
 export type StackTheme = {
   bg: string
@@ -99,22 +99,24 @@ export function StackLayout({
   const siteLabel = index?.title ?? 'garden'
   const breadcrumbBase = basePath ?? `~/${siteLabel}`
 
-  const categorizedPosts = (() => {
-    const all = index?.posts ?? []
-    const welcome = all.filter((p) => (p.postType ?? 'writing') === 'welcome')
-    const picks = all.filter((p) => p.favorite).slice(0, 5)
-    const writings = all.filter((p) => (p.postType ?? 'writing') === 'writing')
-    const documents = all.filter((p) => p.postType === 'document')
-    return { welcome, picks, writings, documents }
-  })()
-  const welcomePost = categorizedPosts.welcome[0] ?? null
+  const allPosts = index?.posts ?? []
+  const pickPosts = allPosts.filter((p) => p.favorite).slice(0, 5)
+  const configuredTypes: PostTypeConfig[] = index?.postTypes ?? []
 
-  const _recentPosts = index?.posts.slice(0, 5) ?? []
+  const typeSections = configuredTypes
+    .filter((t) => t.showInSidebar)
+    .map((t) => ({
+      config: t,
+      posts: allPosts
+        .filter((p) => (p.postType ?? configuredTypes[0]?.name) === t.name)
+        .sort((a, b) => a.slug.localeCompare(b.slug)),
+    }))
+    .filter((s) => s.posts.length > 0)
 
   const allTags = (() => {
     if (!index) return []
     const s = new Set<string>()
-    for (const p of index.posts) {
+    for (const p of allPosts) {
       for (const t of p.tags ?? []) s.add(t)
     }
     return [...s].sort()
@@ -132,7 +134,7 @@ export function StackLayout({
     setSidebarOpen(false)
   }
 
-  function buildTypeFilterUrl(type: 'writing' | 'document'): string {
+  function buildTypeFilterUrl(type: string): string {
     const base = buildBackLinkUrl(indexUrl ?? null, indexBasePath ?? null, urlEncoding)
     const [pathname, search = ''] = base.split('?')
     const params = new URLSearchParams(search)
@@ -260,133 +262,98 @@ export function StackLayout({
                 </button>
               </div>
 
-              {(!postTypeFilter || postTypeFilter === 'welcome') && welcomePost && (
-                <div style={{ padding: '4px 6px' }}>
-                  <SidebarRow
-                    theme={theme}
-                    active={currentSlug === welcomePost.slug}
-                    onClick={() => goPost(welcomePost)}
-                    icon="·"
-                    label={welcomePost.title}
-                  />
-                </div>
+              {/* Picks */}
+              {(!postTypeFilter) && pickPosts.length > 0 && (
+                <>
+                  <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
+                  <SidebarSection theme={theme} title="★ picks">
+                    {pickPosts.map((p) => (
+                      <SidebarRow
+                        key={p.slug}
+                        theme={theme}
+                        active={currentSlug === p.slug}
+                        onClick={() => goPost(p)}
+                        icon="·"
+                        label={p.title}
+                      />
+                    ))}
+                  </SidebarSection>
+                </>
               )}
-              {(!postTypeFilter || postTypeFilter === 'writing' || postTypeFilter === 'document') &&
-                categorizedPosts.picks.length > 0 && (
-                  <>
-                    {welcomePost && <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />}
-                    <SidebarSection theme={theme} title="★ picks">
-                      {categorizedPosts.picks.map((p) => (
-                        <SidebarRow
-                          key={p.slug}
+
+              {/* Type sections */}
+              {typeSections
+                .filter((s) => !postTypeFilter || postTypeFilter === s.config.name)
+                .map((s, idx) => {
+                  const showDivider = idx > 0 || pickPosts.length > 0
+                  const sectionPosts = postTypeFilter ? s.posts : s.posts.slice(0, 5)
+                  return (
+                    <div key={s.config.name}>
+                      {showDivider && <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />}
+                      {s.config.hideTitle ? (
+                        <div style={{ padding: '4px 6px' }}>
+                          {sectionPosts.map((p) => (
+                            <SidebarRow
+                              key={p.slug}
+                              theme={theme}
+                              active={currentSlug === p.slug}
+                              onClick={() => goPost(p)}
+                              icon="·"
+                              label={p.title}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <SidebarSection
                           theme={theme}
-                          active={currentSlug === p.slug}
-                          onClick={() => goPost(p)}
-                          icon="·"
-                          label={p.title}
-                        />
-                      ))}
-                    </SidebarSection>
-                  </>
-                )}
-              {!postTypeFilter && categorizedPosts.writings.length > 0 && (
-                <>
-                  {(welcomePost || categorizedPosts.picks.length > 0) && (
-                    <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-                  )}
-                  <SidebarSection
-                    theme={theme}
-                    title="writings"
-                    headerRight={
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigate(buildTypeFilterUrl('writing'))
-                          setSidebarOpen(false)
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 10,
-                          color: theme.accent,
-                          fontFamily: MONO,
-                          textDecoration: 'none',
-                          letterSpacing: 0,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          padding: 0,
-                        }}
-                      >
-                        view all ↗
-                      </button>
-                    }
-                  >
-                    {categorizedPosts.writings.slice(0, 5).map((p) => (
-                      <SidebarRow
-                        key={p.slug}
-                        theme={theme}
-                        active={currentSlug === p.slug}
-                        onClick={() => goPost(p)}
-                        icon="·"
-                        label={p.title}
-                      />
-                    ))}
-                  </SidebarSection>
-                </>
-              )}
-              {!postTypeFilter && categorizedPosts.documents.length > 0 && (
-                <>
-                  {categorizedPosts.writings.length > 0 && (
-                    <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
-                  )}
-                  <SidebarSection
-                    theme={theme}
-                    title="documents"
-                    headerRight={
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigate(buildTypeFilterUrl('document'))
-                          setSidebarOpen(false)
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: 10,
-                          color: theme.accent,
-                          fontFamily: MONO,
-                          textDecoration: 'none',
-                          letterSpacing: 0,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          padding: 0,
-                        }}
-                      >
-                        view all ↗
-                      </button>
-                    }
-                  >
-                    {categorizedPosts.documents.slice(0, 5).map((p) => (
-                      <SidebarRow
-                        key={p.slug}
-                        theme={theme}
-                        active={currentSlug === p.slug}
-                        onClick={() => goPost(p)}
-                        icon="·"
-                        label={p.title}
-                      />
-                    ))}
-                  </SidebarSection>
-                </>
-              )}
+                          title={s.config.name}
+                          headerRight={
+                            !postTypeFilter && s.posts.length > 5 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigate(buildTypeFilterUrl(s.config.name))
+                                  setSidebarOpen(false)
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: 10,
+                                  color: theme.accent,
+                                  fontFamily: MONO,
+                                  textDecoration: 'none',
+                                  letterSpacing: 0,
+                                  textTransform: 'none',
+                                  fontWeight: 500,
+                                  padding: 0,
+                                }}
+                              >
+                                view all ↗
+                              </button>
+                            ) : undefined
+                          }
+                        >
+                          {sectionPosts.map((p) => (
+                            <SidebarRow
+                              key={p.slug}
+                              theme={theme}
+                              active={currentSlug === p.slug}
+                              onClick={() => goPost(p)}
+                              icon="·"
+                              label={p.title}
+                            />
+                          ))}
+                        </SidebarSection>
+                      )}
+                    </div>
+                  )
+                })}
+
+              {/* Tags */}
               {!postTypeFilter && allTags.length > 0 && (
                 <>
-                  {(Boolean(welcomePost) ||
-                    categorizedPosts.picks.length > 0 ||
-                    categorizedPosts.writings.length > 0 ||
-                    categorizedPosts.documents.length > 0) && (
+                  {(pickPosts.length > 0 || typeSections.length > 0) && (
                     <div style={{ height: 1, background: theme.rule, margin: '4px 14px' }} />
                   )}
                   <SidebarSection theme={theme} title="tags">

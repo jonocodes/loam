@@ -246,7 +246,11 @@ export async function resolvePublicFileUrl(publicFilePath: string): Promise<stri
   if (backend === 'dropbox') {
     const token = getRemoteToken()
     if (!token) return null
-    return createDropboxSharedLink(`/public/${PUBLIC_DIR}/${publicFilePath}`, token)
+    try {
+      return await createDropboxSharedLink(`/public/${PUBLIC_DIR}/${publicFilePath}`, token)
+    } catch {
+      return null
+    }
   }
   if (backend === 'googledrive') {
     const token = getRemoteToken()

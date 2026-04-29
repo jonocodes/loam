@@ -10,6 +10,8 @@ import {
   resolvePublicFeedAtomUrl,
   resolvePublicFeedUrl,
 } from '../lib/remotestorage'
+import type { GardenIndexEntry, PostTypeConfig } from '../lib/schema'
+import { DEFAULT_POST_TYPES } from '../lib/schema'
 import { useStackTheme } from './StackLayout'
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
@@ -24,6 +26,9 @@ export function SettingsView({ onSave }: Props = {}) {
   const [tagline, setTagline] = useState('')
   const [urlPrefix, setUrlPrefix] = useState('')
   const [urlEncoding, setUrlEncoding] = useState<'e1' | 'e2'>('e2')
+  const [postTypes, setPostTypes] = useState<PostTypeConfig[]>(DEFAULT_POST_TYPES)
+  const [homeSlug, setHomeSlug] = useState('')
+  const [publishedPosts, setPublishedPosts] = useState<GardenIndexEntry[]>([])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -48,6 +53,9 @@ export function SettingsView({ onSave }: Props = {}) {
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
       if (index?.urlEncoding) setUrlEncoding(index.urlEncoding)
+      if (index?.postTypes) setPostTypes(index.postTypes)
+      if (index?.homeSlug) setHomeSlug(index.homeSlug)
+      if (index?.posts) setPublishedPosts(index.posts)
       setPublicIndexUrl(indexUrl ?? null)
       setPublicFeedUrl(feedUrl ?? null)
       setPublicFeedAtomUrl(atomUrl ?? null)
@@ -60,7 +68,8 @@ export function SettingsView({ onSave }: Props = {}) {
     setMessage('')
     setError('')
     try {
-      await saveSiteSettings(title, tagline, urlPrefix, urlEncoding)
+      const validTypes = postTypes.filter((t) => t.name.trim())
+      await saveSiteSettings(title, tagline, urlPrefix, urlEncoding, validTypes, homeSlug || undefined)
       if (title) document.title = title
       onSave?.(urlPrefix)
       setMessage('Settings saved')
@@ -83,6 +92,14 @@ export function SettingsView({ onSave }: Props = {}) {
     } finally {
       setBusy(false)
     }
+  }
+
+  function moveType(i: number, dir: -1 | 1) {
+    setPostTypes((prev) => {
+      const next = [...prev]
+      ;[next[i], next[i + dir]] = [next[i + dir], next[i]]
+      return next
+    })
   }
 
   const fieldStyle = {
@@ -113,6 +130,17 @@ export function SettingsView({ onSave }: Props = {}) {
     gap: 4,
   }
 
+  const iconBtnStyle = {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: theme.dim,
+    fontSize: 14,
+    padding: '0 3px',
+    lineHeight: 1,
+    fontFamily: MONO,
+  }
+
   return (
     <div style={{ padding: '24px 32px 80px', maxWidth: 560 }}>
       <h1 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 24px', letterSpacing: -0.2, color: theme.ink }}>
@@ -133,6 +161,23 @@ export function SettingsView({ onSave }: Props = {}) {
             placeholder="A short description"
             style={fieldStyle}
           />
+        </div>
+
+        <div style={sectionStyle}>
+          <span style={labelStyle}>Home page</span>
+          <select
+            value={homeSlug}
+            onChange={(e) => setHomeSlug(e.target.value)}
+            style={{ ...fieldStyle, fontFamily: MONO, fontSize: 11, cursor: 'pointer' }}
+          >
+            <option value="">— show index —</option>
+            {publishedPosts.map((p) => (
+              <option key={p.slug} value={p.slug}>{p.title || p.slug}</option>
+            ))}
+          </select>
+          <span style={{ fontSize: 11, color: theme.dim, fontFamily: MONO }}>
+            post to show when visitors arrive at your site
+          </span>
         </div>
 
         <div style={sectionStyle}>
@@ -179,6 +224,85 @@ export function SettingsView({ onSave }: Props = {}) {
                 <span style={{ fontFamily: MONO }}>{label}</span>
               </label>
             ))}
+          </div>
+        </div>
+
+        {/* Post types */}
+        <div style={sectionStyle}>
+          <span style={labelStyle}>Post types</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {postTypes.map((pt, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  value={pt.name}
+                  onChange={(e) => setPostTypes((prev) => prev.map((p, j) => j === i ? { ...p, name: e.target.value } : p))}
+                  placeholder="type name"
+                  style={{ ...fieldStyle, flex: 1, width: 'auto', padding: '4px 8px' }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: pt.isDefault ? theme.ink : theme.dim, fontFamily: MONO, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }} title="default type for new posts">
+                  <input
+                    type="radio"
+                    name="defaultType"
+                    checked={pt.isDefault}
+                    onChange={() => setPostTypes((prev) => prev.map((p, j) => ({ ...p, isDefault: j === i })))}
+                    style={{ accentColor: theme.accent }}
+                  />
+                  default
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: theme.dim, fontFamily: MONO, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  <input
+                    type="checkbox"
+                    checked={pt.showInSidebar}
+                    onChange={(e) => setPostTypes((prev) => prev.map((p, j) => j === i ? { ...p, showInSidebar: e.target.checked } : p))}
+                    style={{ accentColor: theme.accent }}
+                  />
+                  sidebar
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: theme.dim, fontFamily: MONO, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  <input
+                    type="checkbox"
+                    checked={pt.hideTitle}
+                    onChange={(e) => setPostTypes((prev) => prev.map((p, j) => j === i ? { ...p, hideTitle: e.target.checked } : p))}
+                    style={{ accentColor: theme.accent }}
+                  />
+                  hide title
+                </label>
+                <button
+                  type="button"
+                  disabled={i === 0}
+                  onClick={() => moveType(i, -1)}
+                  style={{ ...iconBtnStyle, opacity: i === 0 ? 0.3 : 1 }}
+                >↑</button>
+                <button
+                  type="button"
+                  disabled={i === postTypes.length - 1}
+                  onClick={() => moveType(i, 1)}
+                  style={{ ...iconBtnStyle, opacity: i === postTypes.length - 1 ? 0.3 : 1 }}
+                >↓</button>
+                <button
+                  type="button"
+                  onClick={() => setPostTypes((prev) => prev.filter((_, j) => j !== i))}
+                  style={{ ...iconBtnStyle, color: '#e06c75' }}
+                >×</button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPostTypes((prev) => [...prev, { name: '', showInSidebar: true, isDefault: false, hideTitle: false }])}
+              style={{
+                background: 'none',
+                border: `1px dashed ${theme.rule}`,
+                color: theme.dim,
+                padding: '4px 10px',
+                borderRadius: 3,
+                cursor: 'pointer',
+                fontSize: 11,
+                fontFamily: MONO,
+                textAlign: 'left' as const,
+              }}
+            >
+              + add type
+            </button>
           </div>
         </div>
 

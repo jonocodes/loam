@@ -10,10 +10,7 @@ function getIndexUrlFromQuery(): string | null {
   return new URLSearchParams(window.location.search).get('index')
 }
 
-function hasExplicitIndexFilters(): boolean {
-  const params = new URLSearchParams(window.location.search)
-  return Boolean(params.get('type') || params.get('tag'))
-}
+let _homeRedirectDone = false
 
 const MONO = '"JetBrains Mono", ui-monospace, monospace'
 
@@ -38,14 +35,13 @@ function IndexContent({
   const theme = useStackTheme()
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const typeFilter = useMemo(() => {
-    const t = new URLSearchParams(window.location.search).get('type')
-    return t === 'writing' || t === 'document' || t === 'welcome' ? t : null
+    return new URLSearchParams(window.location.search).get('type') ?? null
   }, [])
 
   const allTags = useMemo(() => {
     if (!index) return []
     const s = new Set<string>()
-    const posts = typeFilter ? index.posts.filter((p) => (p.postType ?? 'writing') === typeFilter) : index.posts
+    const posts = typeFilter ? index.posts.filter((p) => p.postType === typeFilter) : index.posts
     for (const p of posts) {
       for (const t of p.tags ?? []) s.add(t)
     }
@@ -56,7 +52,7 @@ function IndexContent({
 
   const visiblePosts = useMemo(() => {
     let posts = index?.posts ?? []
-    if (typeFilter) posts = posts.filter((p) => (p.postType ?? 'writing') === typeFilter)
+    if (typeFilter) posts = posts.filter((p) => p.postType === typeFilter)
     if (tagFilter) posts = posts.filter((p) => p.tags?.includes(tagFilter))
     return posts
   }, [index, tagFilter, typeFilter])
@@ -79,16 +75,11 @@ function IndexContent({
     <div style={{ padding: '20px 28px 60px' }}>
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'baseline', gap: 12 }}>
         <h1 style={{ fontSize: 18, fontWeight: 600, margin: 0, letterSpacing: -0.2, color: theme.ink }}>
-          {typeFilter === 'writing'
-            ? 'Writings'
-            : typeFilter === 'document'
-              ? 'Documents'
-              : typeFilter === 'welcome'
-                ? 'Welcome'
-                : tagFilter
-                  ? `#${tagFilter}`
-                  : 'All posts'}
-          {typeFilter && tagFilter ? ` · #${tagFilter}` : ''}
+          {typeFilter
+            ? typeFilter.charAt(0).toUpperCase() + typeFilter.slice(1) + (tagFilter ? ` · #${tagFilter}` : '')
+            : tagFilter
+              ? `#${tagFilter}`
+              : 'All posts'}
         </h1>
         <span style={{ color: theme.dim, fontSize: 12, fontFamily: MONO }}>{visiblePosts.length} files</span>
       </div>
@@ -295,21 +286,20 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
 
   useEffect(() => {
     if (!index || loading || error) return
-    if (hasExplicitIndexFilters()) return
+    if (!index.homeSlug) return
+    if (_homeRedirectDone) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('type') || params.get('tag')) return
 
-    const welcomePost = index.posts.find((post) => (post.postType ?? 'writing') === 'welcome')
-    if (!welcomePost) return
+    const homePost = index.posts.find((p) => p.slug === index.homeSlug)
+    if (!homePost) return
 
-    const nextUrl = buildPostLinkUrl(
-      indexUrl ?? null,
-      indexBasePath ?? null,
-      index.urlEncoding ?? 'e2',
-      welcomePost.slug,
-    )
+    const nextUrl = buildPostLinkUrl(indexUrl ?? null, indexBasePath ?? null, index.urlEncoding ?? 'e2', homePost.slug)
     if (window.location.pathname === new URL(nextUrl, window.location.origin).pathname) return
 
-    history.replaceState({ entry: welcomePost }, '', nextUrl)
-    window.dispatchEvent(new PopStateEvent('popstate', { state: { entry: welcomePost } }))
+    _homeRedirectDone = true
+    history.replaceState({ entry: homePost }, '', nextUrl)
+    window.dispatchEvent(new PopStateEvent('popstate', { state: { entry: homePost } }))
   }, [error, index, indexBasePath, indexUrl, loading])
 
   return (
