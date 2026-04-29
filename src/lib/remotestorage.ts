@@ -32,13 +32,17 @@ function publicClient() {
   return rs.scope(`/public/${PUBLIC_DIR}/`)
 }
 
-function itemUrl(path: string): string | null {
+function scopedItemUrl(client: { getItemURL(path: string): unknown }, path: string): string | null {
   try {
-    const url = publicClient().getItemURL(path)
+    const url = client.getItemURL(path)
     return typeof url === 'string' ? url : null
   } catch {
     return null
   }
+}
+
+function itemUrl(path: string): string | null {
+  return scopedItemUrl(publicClient(), path)
 }
 
 const POSTS_PATH = 'posts/'
@@ -82,7 +86,50 @@ export function getActiveBackend(): string {
   return (rs as unknown as { backend?: string }).backend ?? 'remotestorage'
 }
 
+export async function checkDropboxSharingAccess(): Promise<string | null> {
+  if (getActiveBackend() !== 'dropbox') return null
+  const token = getRemoteToken()
+  if (!token) return 'Dropbox connected, but no auth token is available. Try disconnecting and reconnecting.'
+
+  const res = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ path: `/public/${PUBLIC_DIR}/`, direct_only: true }),
+  })
+  if (res.ok) return null
+
+  let summary = ''
+  try {
+    const body = (await res.json()) as { error_summary?: string }
+    if (typeof body.error_summary === 'string') summary = ` (${body.error_summary})`
+  } catch {
+    // Ignore parse failures and keep a status-based warning.
+  }
+  if (res.status === 401 || res.status === 403) {
+    return `Dropbox sharing is unavailable (${res.status}${summary}). Add sharing.read and sharing.write in your Dropbox app, then disconnect and reconnect to refresh the token scopes.`
+  }
+  return `Dropbox sharing check failed (${res.status}${summary}). Public links may not work until this is resolved.`
+}
+
 async function createDropboxSharedLink(dropboxPath: string, token: string): Promise<string> {
+  async function listExistingLink(): Promise<string | null> {
+    const lookup = await fetch('https://api.dropboxapi.com/2/sharing/list_shared_links', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ path: dropboxPath, direct_only: true }),
+    })
+    if (!lookup.ok) return null
+    const links = (await lookup.json()) as { links?: Array<{ url?: string }> }
+    const existingUrl = links.links?.[0]?.url
+    return typeof existingUrl === 'string' ? dropboxToDirectUrl(existingUrl) : null
+  }
+
   const res = await fetch('https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings', {
     method: 'POST',
     headers: {
@@ -95,12 +142,31 @@ async function createDropboxSharedLink(dropboxPath: string, token: string): Prom
   if (res.status === 409) {
     const body = (await res.json()) as {
       error?: { '.tag': string; shared_link_already_exists?: { metadata: { url: string } } }
+      error_summary?: string
     }
     const existing = body.error?.shared_link_already_exists?.metadata.url
     if (existing) return dropboxToDirectUrl(existing)
+    const fallback = await listExistingLink()
+    if (fallback) return fallback
+    const summary = typeof body.error_summary === 'string' ? ` (${body.error_summary})` : ''
+    throw new Error(`Dropbox sharing API conflict: unable to reuse existing link${summary}`)
   }
 
-  if (!res.ok) throw new Error(`Dropbox sharing API error: ${res.status}`)
+  if (!res.ok) {
+    let summary = ''
+    try {
+      const body = (await res.json()) as { error_summary?: string }
+      if (typeof body.error_summary === 'string') summary = ` (${body.error_summary})`
+    } catch {
+      // Ignore parse failures and keep a status-based error message.
+    }
+    if (res.status === 401) {
+      throw new Error(
+        'Dropbox sharing API error: 401. Your Dropbox token likely lacks sharing scopes. Add sharing.read and sharing.write in the Dropbox app settings, then disconnect and reconnect Dropbox.',
+      )
+    }
+    throw new Error(`Dropbox sharing API error: ${res.status}${summary}`)
+  }
   const data = (await res.json()) as { url: string }
   return dropboxToDirectUrl(data.url)
 }
@@ -231,12 +297,7 @@ export async function fetchWellKnownIndexUrl(): Promise<string | null> {
 }
 
 export function getGardenSettingsUrl(): string | null {
-  try {
-    const url = privateClient().getItemURL(SETTINGS_PATH)
-    return typeof url === 'string' ? url : null
-  } catch {
-    return null
-  }
+  return scopedItemUrl(privateClient(), SETTINGS_PATH)
 }
 
 export async function storePostMarkdown(slug: string, content: string, mediaType?: string): Promise<void> {

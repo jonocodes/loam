@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { rebuildIndex, saveSiteSettings } from '../lib/gardenService'
 import { encodeIndexToken } from '../lib/indexToken'
 import {
+  checkDropboxSharingAccess,
   getGardenSettingsUrl,
   loadPublicIndexUrl,
   pullGardenSetting,
@@ -30,6 +31,7 @@ export function SettingsView({ onSave }: Props = {}) {
   const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null)
   const [publicFeedUrl, setPublicFeedUrl] = useState<string | null>(null)
   const [publicFeedAtomUrl, setPublicFeedAtomUrl] = useState<string | null>(null)
+  const [dropboxSharingWarning, setDropboxSharingWarning] = useState<string | null>(null)
   const gardenSettingsUrl = getGardenSettingsUrl()
 
   useEffect(() => {
@@ -40,7 +42,8 @@ export function SettingsView({ onSave }: Props = {}) {
       loadPublicIndexUrl().catch(() => null),
       resolvePublicFeedUrl().catch(() => null),
       resolvePublicFeedAtomUrl().catch(() => null),
-    ]).then(([t, tl, index, indexUrl, feedUrl, atomUrl]) => {
+      checkDropboxSharingAccess().catch(() => null),
+    ]).then(([t, tl, index, indexUrl, feedUrl, atomUrl, sharingWarning]) => {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
@@ -48,6 +51,7 @@ export function SettingsView({ onSave }: Props = {}) {
       setPublicIndexUrl(indexUrl ?? null)
       setPublicFeedUrl(feedUrl ?? null)
       setPublicFeedAtomUrl(atomUrl ?? null)
+      setDropboxSharingWarning(sharingWarning)
     })
   }, [])
 
@@ -221,6 +225,21 @@ export function SettingsView({ onSave }: Props = {}) {
 
         {message && <div style={{ fontSize: 12, color: theme.accent2, fontFamily: MONO }}>{message}</div>}
         {error && <div style={{ fontSize: 12, color: '#e06c75', fontFamily: MONO }}>{error}</div>}
+        {dropboxSharingWarning && (
+          <div
+            style={{
+              fontSize: 11,
+              color: '#e5c07b',
+              fontFamily: MONO,
+              background: theme.panel2,
+              border: `1px solid ${theme.rule}`,
+              borderRadius: 4,
+              padding: '8px 10px',
+            }}
+          >
+            {dropboxSharingWarning}
+          </div>
+        )}
 
         {/* Public site info */}
         {publicIndexUrl &&
