@@ -33,7 +33,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "remotestorage-widget": "^1.8.1",
-    "remotestoragejs": "^2.0.0-beta.8",
+    "remotestoragejs": "github:jonocodes/remotestorage.js#fix/dropbox-getitemurl",
     "tailwind-merge": "^3.3.1",
     "zod": "^4.3.6"
   },

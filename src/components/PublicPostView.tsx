@@ -181,8 +181,25 @@ export function PublicPostView({ postSlug, indexUrl: propIndexUrl, indexBasePath
   const [body, setBody] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [indexUrl, setIndexUrl] = useState<string | null>(propIndexUrl ?? getQueryParam('index') ?? null)
 
-  const indexUrl = useMemo(() => propIndexUrl ?? getQueryParam('index') ?? getPublicIndexUrl(), [propIndexUrl])
+  useEffect(() => {
+    setIndexUrl(propIndexUrl ?? getQueryParam('index') ?? null)
+  }, [propIndexUrl])
+
+  useEffect(() => {
+    let cancelled = false
+    async function resolveIndexUrl() {
+      if (indexUrl === null) {
+        const resolved = await getPublicIndexUrl()
+        if (!cancelled) setIndexUrl(resolved)
+      }
+    }
+    void resolveIndexUrl()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false

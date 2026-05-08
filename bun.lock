@@ -21,7 +21,7 @@
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
         "remotestorage-widget": "^1.8.1",
-        "remotestoragejs": "^2.0.0-beta.8",
+        "remotestoragejs": "github:jonocodes/remotestorage.js#fix/dropbox-getitemurl",
         "tailwind-merge": "^3.3.1",
         "zod": "^4.3.6",
       },
@@ -570,8 +570,6 @@
 
     "@types/trusted-types": ["@types/trusted-types@2.0.7", "", {}, "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="],
 
-    "@types/tv4": ["@types/tv4@1.2.33", "", {}, "sha512-7phCVTXC6Bj50IV1iKOwqGkR4JONJyMbRZnKTSuujv1S/tO9rG5OdCt7BMSjytO+zJmYdn1/I4fd3SH0gtO99g=="],
-
     "@vitejs/plugin-react": ["@vitejs/plugin-react@5.2.0", "", { "dependencies": { "@babel/core": "^7.29.0", "@babel/plugin-transform-react-jsx-self": "^7.27.1", "@babel/plugin-transform-react-jsx-source": "^7.27.1", "@rolldown/pluginutils": "1.0.0-rc.3", "@types/babel__core": "^7.20.5", "react-refresh": "^0.18.0" }, "peerDependencies": { "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw=="],
 
     "@vitest/expect": ["@vitest/expect@4.1.5", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "@types/chai": "^5.2.2", "@vitest/spy": "4.1.5", "@vitest/utils": "4.1.5", "chai": "^6.2.2", "tinyrainbow": "^3.1.0" } }, "sha512-PWBaRY5JoKuRnHlUHfpV/KohFylaDZTupcXN1H9vYryNLOnitSw60Mw9IAE2r67NbwwzBw/Cc/8q9BK3kIX8Kw=="],
@@ -954,7 +952,7 @@
 
     "remotestorage-widget": ["remotestorage-widget@1.8.1", "", {}, "sha512-HxNu2VvIRW3wzkf5fLEzs56ySQ7+YQbRqyp3CKvmw/G+zKhRsmj06HtFoAcm3B14/nJh2SOAv3LyfKuXfUsKPw=="],
 
-    "remotestoragejs": ["remotestoragejs@2.0.0-beta.8", "", { "dependencies": { "@types/node": "20.14.0", "@types/tv4": "^1.2.29", "esm": "^3.2.25", "tv4": "^1.3.0", "webfinger.js": "^2.7.1", "xhr2": "^0.2.1" }, "optionalDependencies": { "fsevents": "^2.3.2" } }, "sha512-rtyHTG2VbtiKTRmbwjponRf5VTPJMcHv/ijNid1zX48C0Z0F8ZCBBfkKD2QCxTQyQvCupkWNy3wuIu4HE+AEng=="],
+    "remotestoragejs": ["remotestoragejs@github:jonocodes/remotestorage.js#f7d1741", { "dependencies": { "esm": "^3.2.25", "tv4": "^1.3.0", "webfinger.js": "^3.0.4", "xhr2": "^0.2.1" }, "optionalDependencies": { "fsevents": "^2.3.2" } }, "jonocodes-remotestorage.js-f7d1741", "sha512-1RmhS+Uvvx7QG/OqWHM5j+ETwduTXnEyB/lFnEyjIeUNvvpYXWq/XPcCDLEPPxzRNz6gz0UxiXsdAd+omG2SCw=="],
 
     "require-from-string": ["require-from-string@2.0.2", "", {}, "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw=="],
 
@@ -1102,7 +1100,7 @@
 
     "w3c-keyname": ["w3c-keyname@2.2.8", "", {}, "sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ=="],
 
-    "webfinger.js": ["webfinger.js@2.8.2", "", {}, "sha512-Zqn9KXkGrD1tVEm029bVUIfmzef2KXs3G7OZrdqehDHtgv9YSxX1oy4RoPoMk2PHWIifwWCA0xwKZOAZqXMpfg=="],
+    "webfinger.js": ["webfinger.js@3.0.4", "", {}, "sha512-5c15N1n4qCm/jGJjUt32mBdPVlSugLbAztIDNBpuDfukGz2E9NhmXPfLikayn2p3kcgEZsI/UOdOwVpxOr8qJA=="],
 
     "webidl-conversions": ["webidl-conversions@4.0.2", "", {}, "sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg=="],
 
@@ -1182,8 +1180,6 @@
 
     "playwright/fsevents": ["fsevents@2.3.2", "", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
 
-    "remotestoragejs/@types/node": ["@types/node@20.14.0", "", { "dependencies": { "undici-types": "~5.26.4" } }, "sha512-5cHBxFGJx6L4s56Bubp4fglrEpmyJypsqI6RgzMfBHWUJQGWAAi8cWcgetEbZXHYXo9C2Fa4EEds/uSyS4cxmA=="],
-
     "rolldown/@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.0-rc.16", "", {}, "sha512-45+YtqxLYKDWQouLKCrpIZhke+nXxhsw+qAHVzHDVwttyBlHNBVs2K25rDXrZzhpTp9w1FlAlvweV1H++fdZoA=="],
 
     "source-map-support/source-map": ["source-map@0.6.1", "", {}, "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="],
@@ -1197,8 +1193,6 @@
     "@rollup/plugin-node-resolve/@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
 
     "filelist/minimatch/brace-expansion": ["brace-expansion@2.1.0", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-TN1kCZAgdgweJhWWpgKYrQaMNHcDULHkWwQIspdtjV4Y5aurRdZpjAqn6yX3FPqTA9ngHCc4hJxMAMgGfve85w=="],
-
-    "remotestoragejs/@types/node/undici-types": ["undici-types@5.26.5", "", {}, "sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA=="],
 
     "filelist/minimatch/brace-expansion/balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
   }

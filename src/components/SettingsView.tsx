@@ -3,6 +3,7 @@ import { rebuildIndex, saveSiteSettings } from '../lib/gardenService'
 import { encodeIndexToken } from '../lib/indexToken'
 import {
   checkDropboxSharingAccess,
+  checkGoogleDriveSharingAccess,
   getGardenSettingsUrl,
   loadPublicIndexUrl,
   pullAllPostMeta,
@@ -37,8 +38,12 @@ export function SettingsView({ onSave }: Props = {}) {
   const [publicIndexUrl, setPublicIndexUrl] = useState<string | null>(null)
   const [publicFeedUrl, setPublicFeedUrl] = useState<string | null>(null)
   const [publicFeedAtomUrl, setPublicFeedAtomUrl] = useState<string | null>(null)
-  const [dropboxSharingWarning, setDropboxSharingWarning] = useState<string | null>(null)
-  const gardenSettingsUrl = getGardenSettingsUrl()
+  const [sharingWarning, setSharingWarning] = useState<string | null>(null)
+  const [gardenSettingsUrl, setGardenSettingsUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    void getGardenSettingsUrl().then(setGardenSettingsUrl)
+  }, [])
 
   useEffect(() => {
     void Promise.all([
@@ -50,7 +55,8 @@ export function SettingsView({ onSave }: Props = {}) {
       resolvePublicFeedUrl().catch(() => null),
       resolvePublicFeedAtomUrl().catch(() => null),
       checkDropboxSharingAccess().catch(() => null),
-    ]).then(([t, tl, index, allMeta, indexUrl, feedUrl, atomUrl, sharingWarning]) => {
+      checkGoogleDriveSharingAccess().catch(() => null),
+    ]).then(([t, tl, index, allMeta, indexUrl, feedUrl, atomUrl, dropboxWarning, googleWarning]) => {
       if (t) setTitle(t)
       if (tl) setTagline(tl)
       if (index?.urlPrefix) setUrlPrefix(index.urlPrefix)
@@ -61,7 +67,7 @@ export function SettingsView({ onSave }: Props = {}) {
       setPublicIndexUrl(indexUrl ?? null)
       setPublicFeedUrl(feedUrl ?? null)
       setPublicFeedAtomUrl(atomUrl ?? null)
-      setDropboxSharingWarning(sharingWarning)
+      setSharingWarning(dropboxWarning ?? googleWarning ?? null)
     })
   }, [])
 
@@ -354,7 +360,7 @@ export function SettingsView({ onSave }: Props = {}) {
 
         {message && <div style={{ fontSize: 12, color: theme.accent2, fontFamily: MONO }}>{message}</div>}
         {error && <div style={{ fontSize: 12, color: '#e06c75', fontFamily: MONO }}>{error}</div>}
-        {dropboxSharingWarning && (
+        {sharingWarning && (
           <div
             style={{
               fontSize: 11,
@@ -366,7 +372,7 @@ export function SettingsView({ onSave }: Props = {}) {
               padding: '8px 10px',
             }}
           >
-            {dropboxSharingWarning}
+            {sharingWarning}
           </div>
         )}
 

@@ -16,48 +16,6 @@ if (dropboxAppKey || googleClientId) {
   })
 }
 
-const EXTRA_DROPBOX_SCOPES = ['sharing.read', 'sharing.write'] as const
-
-type OAuthAuthorizeOptions = {
-  authURL?: string
-  scope?: string
-}
-
-type OAuthAuthorize = (...args: unknown[]) => unknown
-
-function mergeScopes(base: string | undefined, extras: readonly string[]): string {
-  const merged = new Set(
-    `${base ?? ''} ${extras.join(' ')}`
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean),
-  )
-  return [...merged].join(' ')
-}
-
-function patchDropboxAuthorizeScopes(): void {
-  const target = rs as unknown as { authorize?: OAuthAuthorize }
-  const originalAuthorize = target.authorize
-  if (typeof originalAuthorize !== 'function') return
-
-  target.authorize = function patchedAuthorize(this: unknown, ...args: unknown[]) {
-    const maybeOptions = args[0]
-    const options =
-      typeof maybeOptions === 'object' && maybeOptions !== null ? (maybeOptions as OAuthAuthorizeOptions) : undefined
-    const isDropboxAuthorize = options?.authURL?.includes('dropbox.com/oauth2/authorize')
-    if (isDropboxAuthorize) {
-      const patchedOptions: OAuthAuthorizeOptions = {
-        ...options,
-        scope: mergeScopes(options?.scope, EXTRA_DROPBOX_SCOPES),
-      }
-      return originalAuthorize.apply(this, [patchedOptions, ...args.slice(1)])
-    }
-    return originalAuthorize.apply(this, args)
-  }
-}
-
-patchDropboxAuthorizeScopes()
-
 const RS_MODULE = import.meta.env.VITE_RS_MODULE ?? 'loam'
 const PUBLIC_DIR = import.meta.env.VITE_PUBLIC_DIR ?? RS_MODULE
 
@@ -74,16 +32,16 @@ function publicClient() {
   return rs.scope(`/public/${PUBLIC_DIR}/`)
 }
 
-function scopedItemUrl(client: { getItemURL(path: string): unknown }, path: string): string | null {
+async function scopedItemUrl(client: { getItemURL(path: string): unknown }, path: string): Promise<string | null> {
   try {
-    const url = client.getItemURL(path)
+    const url = await (client.getItemURL(path) as Promise<string | undefined> | string)
     return typeof url === 'string' ? url : null
   } catch {
     return null
   }
 }
 
-function itemUrl(path: string): string | null {
+async function itemUrl(path: string): Promise<string | null> {
   return scopedItemUrl(publicClient(), path)
 }
 
@@ -263,6 +221,22 @@ export async function checkDropboxSharingAccess(): Promise<string | null> {
   return `Dropbox sharing check failed (${res.status}${summary}). Public links may not work until this is resolved.`
 }
 
+export async function checkGoogleDriveSharingAccess(): Promise<string | null> {
+  if (getActiveBackend() !== 'googledrive') return null
+  const token = getRemoteToken()
+  if (!token) return 'Google Drive connected, but no auth token is available. Try disconnecting and reconnecting.'
+
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?pageSize=1&fields=files(id)', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.ok) return null
+
+  if (res.status === 401 || res.status === 403) {
+    return `Google Drive sharing is unavailable (${res.status}). Disconnect and reconnect Google Drive to refresh permissions.`
+  }
+  return `Google Drive access check failed (${res.status}). Public links may not work until this is resolved.`
+}
+
 async function createDropboxSharedLink(dropboxPath: string, token: string): Promise<string> {
   const pathCandidates = getDropboxPathCandidates(dropboxPath)
   const isPathConflict = (summary: string): boolean => summary.includes('path/')
@@ -390,11 +364,14 @@ async function ensureGoogleDrivePublicFolder(token: string): Promise<string | nu
   }
 
   // Set the whole public folder public once — all children inherit
-  await fetch(`https://www.googleapis.com/drive/v3/files/${parentId}/permissions`, {
+  const permRes = await fetch(`https://www.googleapis.com/drive/v3/files/${parentId}/permissions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ role: 'reader', type: 'anyone' }),
   })
+  if (!permRes.ok) {
+    throw new Error(`Google Drive: failed to make public folder readable (${permRes.status})`)
+  }
 
   gdPublicFolderId = parentId
   return parentId
@@ -438,7 +415,7 @@ export async function resolvePublicFileUrl(publicFilePath: string): Promise<stri
     if (!token) return null
     return getGoogleDrivePublicUrl(publicFilePath, token)
   }
-  return itemUrl(publicFilePath)
+  return await itemUrl(publicFilePath)
 }
 
 export async function resolvePublicPostUrl(slug: string, mediaType?: string): Promise<string | null> {
@@ -457,7 +434,7 @@ export async function resolvePublicFeedAtomUrl(): Promise<string | null> {
   return resolvePublicFileUrl(FEED_ATOM_PATH)
 }
 
-export function getPublicIndexUrl(): string | null {
+export async function getPublicIndexUrl(): Promise<string | null> {
   return itemUrl(INDEX_PATH)
 }
 
@@ -481,7 +458,7 @@ export async function fetchWellKnownIndexUrl(): Promise<string | null> {
   }
 }
 
-export function getGardenSettingsUrl(): string | null {
+export async function getGardenSettingsUrl(): Promise<string | null> {
   return scopedItemUrl(privateClient(), SETTINGS_PATH)
 }
 
@@ -598,7 +575,7 @@ export async function storeMediaFile(contentPath: string, mimeType: string, data
   // RS.js 2.0-beta has a bug where a 404 pre-sync GET causes binary files to be delayed
   // indefinitely rather than PUTted. Bypass the sync pipeline for native RS backend.
   if (getActiveBackend() === 'remotestorage') {
-    const url = itemUrl(contentPath)
+    const url = await itemUrl(contentPath)
     const token = getRemoteToken()
     if (url && token) {
       const res = await fetch(url, {
@@ -615,7 +592,7 @@ export async function storeMediaFile(contentPath: string, mimeType: string, data
 
 export async function deleteMediaFile(contentPath: string): Promise<void> {
   if (getActiveBackend() === 'remotestorage') {
-    const url = itemUrl(contentPath)
+    const url = await itemUrl(contentPath)
     const token = getRemoteToken()
     if (url && token) {
       await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
@@ -652,7 +629,7 @@ export async function listMediaPaths(): Promise<string[]> {
 export async function getMediaFileAsObjectUrl(contentPath: string): Promise<string | null> {
   // For native RS, fetch directly — file was PUT outside the RS.js cache
   if (getActiveBackend() === 'remotestorage') {
-    const url = itemUrl(contentPath)
+    const url = await itemUrl(contentPath)
     if (!url) return null
     try {
       const res = await fetch(url)

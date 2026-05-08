@@ -153,3 +153,7 @@ OAuth access tokens are secrets. Prefer DevTools copy locally; avoid committing 
 
 - Dropbox `getItemURL` not implemented: https://github.com/remotestorage/remotestorage.js/issues/1052
 - rs.js Dropbox/GDrive limitations doc: https://remotestorage.io/rs.js/docs/dropbox-and-google-drive.html
+
+## Future upstream improvements
+
+See [rs-upstream-follow-up.md](./rs-upstream-follow-up.md) for planned follow-up PRs to remoteStorage.js that could further simplify loam's Dropbox handling.

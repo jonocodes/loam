@@ -254,8 +254,25 @@ export function PublicIndexView({ indexUrl: propIndexUrl, indexBasePath }: Props
   const [index, setIndex] = useState<GardenIndex | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [indexUrl, setIndexUrl] = useState<string | null>(propIndexUrl ?? getIndexUrlFromQuery() ?? null)
 
-  const indexUrl = useMemo(() => propIndexUrl ?? getIndexUrlFromQuery() ?? getPublicIndexUrl(), [propIndexUrl])
+  useEffect(() => {
+    setIndexUrl(propIndexUrl ?? getIndexUrlFromQuery() ?? null)
+  }, [propIndexUrl])
+
+  useEffect(() => {
+    let cancelled = false
+    async function resolveIndexUrl() {
+      if (indexUrl === null) {
+        const resolved = await getPublicIndexUrl()
+        if (!cancelled) setIndexUrl(resolved)
+      }
+    }
+    void resolveIndexUrl()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false

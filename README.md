@@ -289,3 +289,8 @@ If you get `401` errors reading or writing:
 ## Core invariant
 
 The index is the only way readers discover posts. A post can exist as files without appearing publicly until it is published and the index is updated.
+
+
+## Upstream remoteStorage.js
+
+Loam uses [remotestorage.js](https://github.com/remotestorage/remotestorage.js) for cloud storage. Dropbox backend quirks are documented in [docs/dropbox-remotestorage.md](./docs/dropbox-remotestorage.md). Planned follow-up PRs to upstream are in [docs/rs-upstream-follow-up.md](./docs/rs-upstream-follow-up.md).
