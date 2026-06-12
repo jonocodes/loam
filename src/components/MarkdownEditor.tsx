@@ -1,11 +1,21 @@
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown } from '@codemirror/lang-markdown'
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { languages } from '@codemirror/language-data'
-import { EditorState } from '@codemirror/state'
+import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { Table } from '@lezer/markdown'
-import { editorTheme, imageField, linkPlugin, livePreviewPlugin, markdownStylePlugin } from 'codemirror-live-markdown'
+import {
+  collapseOnSelectionFacet,
+  editorTheme,
+  imageField,
+  linkPlugin,
+  listPlugin,
+  livePreviewPlugin,
+  markdownStylePlugin,
+  mouseSelectingField,
+  setMouseSelecting,
+} from 'codemirror-live-markdown'
 import { useEffect, useRef } from 'react'
 
 interface Props {
@@ -42,17 +52,22 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
   useEffect(() => {
     if (!hostRef.current) return
 
-    const readOnlyExtension = (EditorState as { readOnly?: { of: (value: boolean) => unknown } }).readOnly?.of(readOnly)
+    const readOnlyExtension = (EditorState as { readOnly?: { of: (value: boolean) => Extension } }).readOnly?.of(
+      readOnly,
+    )
 
-    const languageExtensions =
+    const languageExtensions: Extension[] =
       language === 'markdown'
         ? [
             markdown({ extensions: [Table], codeLanguages: languages }),
             syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-            livePreviewPlugin,
-            markdownStylePlugin,
-            linkPlugin(),
-            imageField(),
+            collapseOnSelectionFacet.of(true),
+            mouseSelectingField as Extension,
+            livePreviewPlugin as Extension,
+            markdownStylePlugin as Extension,
+            linkPlugin() as Extension,
+            imageField() as Extension,
+            listPlugin as Extension,
             editorTheme,
           ]
         : [syntaxHighlighting(defaultHighlightStyle, { fallback: true })]
@@ -61,7 +76,7 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
       doc: value,
       extensions: [
         history(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
         ...languageExtensions,
         baseTheme,
         ...(readOnlyExtension ? [readOnlyExtension] : []),
@@ -77,7 +92,16 @@ export function MarkdownEditor({ value, onChange, readOnly = false, language = '
     const view = new EditorView({ state, parent: hostRef.current })
     viewRef.current = view
 
+    const onMouseDown = () => view.dispatch({ effects: setMouseSelecting.of(true) })
+    const onMouseUp = () => {
+      requestAnimationFrame(() => view.dispatch({ effects: setMouseSelecting.of(false) }))
+    }
+    view.contentDOM.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('mouseup', onMouseUp)
+
     return () => {
+      view.contentDOM.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mouseup', onMouseUp)
       view.destroy()
       viewRef.current = null
     }
